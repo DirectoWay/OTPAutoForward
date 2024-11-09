@@ -1,0 +1,48 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Base application theme. -->
+    <style name="Theme.AutoCAPTCHA" parent="Theme.MaterialComponents.DayNight.NoActionBar.Bridge">
+        <!-- Primary brand color. -->
+        <item name="colorPrimary">@color/white</item>
+        <item name="colorPrimaryVariant">@color/white</item>
+        <item name="colorOnPrimary">@color/black</item>
+        <item name="navigationViewStyle">@style/NavigationViewStyle</item> <!-- 侧边菜单栏样式 -->
+        <item name="toolbarStyle">@style/ToolbarStyle</item>
+        <!-- 打开app后状态栏的颜色 -->
+        <!--<item name="android:statusBarColor">?attr/colorPrimaryVariant</item>-->
+    </style>
+
+    <!-- 侧边菜单栏和导航栏的样式 -->
+    <style name="NavigationViewStyle" parent="Widget.MaterialComponents.NavigationView">
+        <item name="titleTextColor">@color/black</item> <!-- 标题颜色 -->
+        <item name="itemTextColor">@color/black</item> <!-- 菜单栏文字颜色 -->
+        <item name="itemIconTint">@color/black</item> <!-- 菜单栏图标颜色 -->
+    </style>
+
+    <!-- 自定义 Toolbar 样式 -->
+    <style name="ToolbarStyle" parent="Widget.MaterialComponents.Toolbar">
+        <item name="titleTextColor">@color/black</item> <!-- 设置标题文字颜色 -->
+        <item name="trackTint">@color/black</item> <!-- 设置导航图标颜色 -->
+    </style>
+
+    <style name="Theme.AutoCAPTCHA.NoActionBar">
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
+    </style>
+
+    <!-- 自定义CardView样式 -->
+    <style name="CustomShapeAppearance1">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSizeTopLeft">20dp</item>
+        <item name="cornerSizeTopRight">20dp</item>
+        <item name="cornerSizeBottomLeft">0dp</item>
+        <item name="cornerSizeBottomRight">0dp</item>
+    </style>
+
+    <style name="CustomShapeAppearance2">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSizeTopLeft">0dp</item>
+        <item name="cornerSizeTopRight">0dp</item>
+        <item name="cornerSizeBottomLeft">20dp</item>
+        <item name="cornerSizeBottomRight">20dp</item>
+    </style>
+</resources>

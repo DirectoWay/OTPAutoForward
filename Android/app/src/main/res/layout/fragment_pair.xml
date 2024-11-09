@@ -1,0 +1,347 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:scrollbars="none">
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/parentView"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="#F5F5F5"
+        android:visibility="visible"
+        tools:context=".ui.pair.PairFragment">
+
+        <!-- 短信转发 -->
+        <androidx.cardview.widget.CardView
+            android:id="@+id/view_total_switch"
+            android:layout_width="match_parent"
+            android:layout_height="75dp"
+            android:layout_marginTop="10dp"
+            app:cardBackgroundColor="#D7D7D7"
+            app:cardCornerRadius="35dp"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent">
+
+            <androidx.constraintlayout.widget.ConstraintLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent">
+
+                <com.google.android.material.switchmaterial.SwitchMaterial
+                    android:id="@+id/switch_total"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:checked="true"
+                    android:text="短信转发"
+                    android:textSize="18sp"
+                    app:layout_constraintBottom_toBottomOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent"
+                    app:layout_constraintVertical_bias="0.3"
+                    app:layout_constraintWidth_percent="0.85" />
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="15dp"
+                    android:text="关闭后将不再监测短信也不再进行转发"
+                    android:textSize="13sp"
+                    app:layout_constraintBottom_toBottomOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="@id/switch_total"
+                    app:layout_constraintTop_toTopOf="@id/switch_total" />
+            </androidx.constraintlayout.widget.ConstraintLayout>
+        </androidx.cardview.widget.CardView>
+
+        <!-- 开关描述 -->
+        <androidx.cardview.widget.CardView
+            android:id="@+id/view_switch_warn"
+            android:layout_width="match_parent"
+            android:layout_height="100dp"
+            android:layout_marginTop="25dp"
+            android:visibility="invisible"
+            app:cardBackgroundColor="@android:color/white"
+            app:cardCornerRadius="20dp"
+            app:layout_constraintTop_toBottomOf="@id/view_total_switch">
+
+            <ImageView
+                android:id="@+id/icon_warn_switch"
+                android:layout_width="30dp"
+                android:layout_height="30dp"
+                android:layout_marginStart="30dp"
+                android:layout_marginTop="15dp"
+                android:src="@drawable/round_error_outline_24"
+                app:layout_constraintEnd_toStartOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent"
+                app:tint="#808080" />
+
+            <TextView
+                android:id="@+id/text_warn_switch"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="25dp"
+                android:layout_marginTop="70dp"
+                android:text="要查看和使用可用的设备，请开启短信转发"
+                android:textColor="#808080"
+                android:textSize="13sp" />
+        </androidx.cardview.widget.CardView>
+
+        <Space
+            android:id="@+id/space_void_warn"
+            android:layout_width="match_parent"
+            android:layout_height="100dp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/view_switch_warn" />
+
+        <androidx.constraintlayout.widget.ConstraintLayout
+            android:id="@+id/container_switch_retractable"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="25dp"
+            android:orientation="vertical"
+            app:layout_constraintTop_toBottomOf="@id/view_total_switch">
+            <!-- 设备名称 -->
+            <androidx.cardview.widget.CardView
+                android:id="@+id/view_device_info"
+                android:layout_width="match_parent"
+                android:layout_height="140dp"
+                app:cardBackgroundColor="@color/white"
+                app:cardCornerRadius="20dp"
+                app:layout_constraintBottom_toTopOf="@id/view_qr_pair"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent">
+
+                <androidx.constraintlayout.widget.ConstraintLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:text="设备名称"
+                        android:textColor="#808080"
+                        android:textSize="17sp"
+                        app:layout_constraintBottom_toBottomOf="parent"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toTopOf="parent"
+                        app:layout_constraintVertical_bias="0.125"
+                        app:layout_constraintWidth_percent="0.85" />
+
+                    <TextView
+                        android:id="@+id/deviceName"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:text="设备名称检测失败"
+                        android:textColor="#808080"
+                        android:textSize="14sp"
+                        app:layout_constraintBottom_toBottomOf="parent"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toTopOf="parent"
+                        app:layout_constraintVertical_bias="0.32"
+                        app:layout_constraintWidth_percent="0.85" />
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:text="设备IP地址"
+                        android:textColor="#808080"
+                        android:textSize="17sp"
+                        app:layout_constraintBottom_toBottomOf="parent"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toTopOf="parent"
+                        app:layout_constraintVertical_bias="0.7"
+                        app:layout_constraintWidth_percent="0.85" />
+
+                    <TextView
+                        android:id="@+id/deviceIPAddress"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:text="设备IP地址检测失败"
+                        android:textColor="#808080"
+                        android:textSize="14sp"
+                        app:layout_constraintBottom_toBottomOf="parent"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toTopOf="parent"
+                        app:layout_constraintVertical_bias="0.875"
+                        app:layout_constraintWidth_percent="0.85" />
+                </androidx.constraintlayout.widget.ConstraintLayout>
+            </androidx.cardview.widget.CardView>
+
+            <!-- 扫码配对 -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/view_qr_pair"
+                android:layout_width="match_parent"
+                android:layout_height="75dp"
+                android:layout_marginTop="25dp"
+                app:cardBackgroundColor="@color/white"
+                app:layout_constraintBottom_toTopOf="@id/pairModeLine"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@id/view_device_info"
+                app:shapeAppearanceOverlay="@style/CustomShapeAppearance1">
+
+                <androidx.constraintlayout.widget.ConstraintLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent">
+
+                    <ImageView
+                        android:id="@+id/icon_qr_pair"
+                        android:layout_width="30dp"
+                        android:layout_height="30dp"
+                        android:layout_marginStart="25dp"
+                        android:src="@drawable/baseline_qr_code_24"
+                        app:layout_constraintBottom_toBottomOf="parent"
+                        app:layout_constraintEnd_toStartOf="@id/title_qr_pair"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toTopOf="parent"
+                        app:tint="#0F826E" />
+
+                    <TextView
+                        android:id="@+id/title_qr_pair"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="25dp"
+                        android:layout_marginTop="5dp"
+                        android:text="使用二维码配对设备"
+                        android:textColor="@color/black"
+                        android:textSize="17sp"
+                        app:layout_constraintStart_toEndOf="@id/icon_qr_pair"
+                        app:layout_constraintTop_toTopOf="parent" />
+
+                    <TextView
+                        android:id="@+id/subtitle_qr_pair"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="使用二维码扫描器配对新设备"
+                        android:textColor="#808080"
+                        android:textSize="13sp"
+                        app:layout_constraintStart_toStartOf="@id/title_qr_pair"
+                        app:layout_constraintTop_toBottomOf="@id/title_qr_pair" />
+                </androidx.constraintlayout.widget.ConstraintLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- 这个view用于充当分割线 -->
+            <View
+                android:id="@+id/pairModeLine"
+                android:layout_width="0dp"
+                android:layout_height="0.1dp"
+                android:background="#D2D2D2"
+                android:translationZ="1.1dp"
+                app:layout_constraintBottom_toTopOf="@id/view_code_pair"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@id/view_qr_pair"
+                app:layout_constraintWidth_percent="0.9" />
+
+            <!-- 配对码配对 -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/view_code_pair"
+                android:layout_width="match_parent"
+                android:layout_height="75dp"
+                app:cardBackgroundColor="@color/white"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@id/view_qr_pair"
+                app:shapeAppearanceOverlay="@style/CustomShapeAppearance2">
+
+                <androidx.constraintlayout.widget.ConstraintLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent">
+
+                    <ImageView
+                        android:id="@+id/icon_code_pair"
+                        android:layout_width="30dp"
+                        android:layout_height="30dp"
+                        android:layout_marginStart="25dp"
+                        android:src="@drawable/baseline_password_24"
+                        app:layout_constraintBottom_toBottomOf="parent"
+                        app:layout_constraintEnd_toStartOf="@id/title_code_pair"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toTopOf="parent"
+                        app:tint="#0F826E" />
+
+                    <TextView
+                        android:id="@+id/title_code_pair"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="25dp"
+                        android:layout_marginTop="5dp"
+                        android:text="使用配对码配对设备"
+                        android:textColor="@color/black"
+                        android:textSize="17sp"
+                        app:layout_constraintBottom_toTopOf="@id/subtitle_code_pair"
+                        app:layout_constraintStart_toEndOf="@id/icon_code_pair"
+                        app:layout_constraintTop_toTopOf="parent" />
+
+                    <TextView
+                        android:id="@+id/subtitle_code_pair"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="使用六位数配对码配对新设备"
+                        android:textColor="#808080"
+                        android:textSize="13sp"
+                        app:layout_constraintStart_toStartOf="@id/title_code_pair"
+                        app:layout_constraintTop_toBottomOf="@id/title_code_pair" />
+                </androidx.constraintlayout.widget.ConstraintLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- 已配对的设备 -->
+            <TextView
+                android:id="@+id/text_paired_device"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="25dp"
+                android:layout_marginTop="25dp"
+                android:text="已配对的设备"
+                android:textColor="#464646"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintHorizontal_bias="0.5"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/view_code_pair"
+                app:layout_constraintVertical_bias="0" />
+
+            <androidx.cardview.widget.CardView
+                android:id="@+id/view_paired_deviceInfo"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:visibility="gone"
+                app:cardBackgroundColor="@color/white"
+                app:cardCornerRadius="20dp"
+                app:layout_constraintBottom_toTopOf="@id/space_void"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@id/text_paired_device">
+
+                <LinearLayout
+                    android:id="@+id/layout_paired_deviceInfo"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:paddingTop="20dp" />
+            </androidx.cardview.widget.CardView>
+
+            <!-- 屏幕最下方的占位view-->
+            <Space
+                android:id="@+id/space_void"
+                android:layout_width="match_parent"
+                android:layout_height="100dp"
+                app:layout_constraintBottom_toBottomOf="parent" />
+        </androidx.constraintlayout.widget.ConstraintLayout>
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+</ScrollView>
