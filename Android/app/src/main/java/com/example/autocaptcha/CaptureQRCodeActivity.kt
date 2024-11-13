@@ -1,5 +1,4 @@
 package com.example.autocaptcha
-
 import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
@@ -25,7 +24,7 @@ class CaptureQRCodeActivity : AppCompatActivity() {
         // 移除红色激光线
         (barcodeView.viewFinder as ViewfinderView).setLaserVisibility(false)
 
-        // 开始连续解码
+        // 使用连续扫码
         barcodeView.decodeContinuous(object : BarcodeCallback {
             override fun barcodeResult(result: BarcodeResult) {
                 handleResult(result) // 处理扫码结果
@@ -34,7 +33,7 @@ class CaptureQRCodeActivity : AppCompatActivity() {
             override fun possibleResultPoints(resultPoints: List<ResultPoint>) {}
         })
 
-        // 使用OnBackPressedDispatcher处理返回操作
+        // 处理返回操作
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 val intent = Intent()
@@ -56,10 +55,11 @@ class CaptureQRCodeActivity : AppCompatActivity() {
         barcodeView.pause()
     }
 
+    // 处理扫码结果
     private fun handleResult(result: BarcodeResult) {
         Log.d("SCAN_RESULT", "已经处理结果")
         val intent = Intent()
-        intent.putExtra("SCAN_RESULT", result.text) // 将扫码结果放入Intent中
+        intent.putExtra("SCAN_RESULT", result.text) // 将扫码结果放入 Intent 中
         Log.d("SCAN_RESULT", "相机的扫描结果为:" + result.text)
         setResult(Activity.RESULT_OK, intent) // 返回结果
         finish() // 结束活动

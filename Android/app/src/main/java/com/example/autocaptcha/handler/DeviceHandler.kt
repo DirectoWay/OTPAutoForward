@@ -1,21 +1,43 @@
 package com.example.autocaptcha.handler
 
-import android.util.Log
+import android.content.Context
 import android.view.LayoutInflater
-import android.view.View
-import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
-import androidx.recyclerview.widget.RecyclerView
 import com.example.autocaptcha.R
 
 /* DeviceInfo类用于保存已经配对的设备信息 */
 data class DeviceInfo(val typeIcon: Int, val deviceName: String, val settingIcon: Int)
 
 /* 动态的给配对页面的RecyclerView中生成元素, 用以动态生成已经配对的设备信息 */
-class DeviceAdapter(private val devices: List<DeviceInfo>, private val container: LinearLayout) {
-    fun bind() {
+class DeviceHandler(private val container: LinearLayout) {
+
+    fun getDeviceInfo(context: Context): List<DeviceInfo> {
+        val webSocketHandler = WebSocketHandler.getInstance();
+        val allDevicesInfo = webSocketHandler.getAllDevicesInfo(context);
+
+        return allDevicesInfo.map { pairingInfo ->
+            DeviceInfo(
+                typeIcon = getDeviceIconForType(pairingInfo.deviceType),
+                deviceName = pairingInfo.deviceName,
+                settingIcon = R.drawable.baseline_settings_24 // 设置图标
+            )
+        }
+    }
+
+    // 按照设备类型设置图标
+    private fun getDeviceIconForType(deviceType: String): Int {
+        return when (deviceType.lowercase()) {
+            "desktop" -> R.drawable.sharp_desktop_windows_24
+            "laptop" -> R.drawable.sharp_laptop_mac_24
+            "mobile" -> R.drawable.baseline_phone_iphone_24
+            else -> R.drawable.baseline_device_unknown_24 // 默认未知设备图标
+        }
+    }
+
+    // 动态绑定设备信息与图标
+    fun bindDeviceInfo(devices: List<DeviceInfo>) {
         container.removeAllViews() // 清空之前的视图
         for (device in devices) {
             val itemView = LayoutInflater.from(container.context)

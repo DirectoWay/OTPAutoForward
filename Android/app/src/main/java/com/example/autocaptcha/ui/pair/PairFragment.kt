@@ -26,27 +26,26 @@ import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import com.example.autocaptcha.CaptureQRCodeActivity
 import com.example.autocaptcha.R
-
 import com.example.autocaptcha.databinding.FragmentPairBinding
-import com.example.autocaptcha.handler.MQTTManager
-import com.example.autocaptcha.handler.QRCodeProcessor
 import androidx.cardview.widget.CardView
 import androidx.constraintlayout.widget.ConstraintLayout
-import com.example.autocaptcha.handler.DeviceAdapter
-import com.example.autocaptcha.handler.DeviceInfo
+import com.example.autocaptcha.handler.DeviceHandler
+import com.example.autocaptcha.handler.QRCodeHandler
+import com.example.autocaptcha.handler.WebSocketHandler
 import com.google.android.material.switchmaterial.SwitchMaterial
 import java.net.Inet4Address
 
 class PairFragment : Fragment() {
     private var _binding: FragmentPairBinding? = null
     private val binding get() = _binding!!
+    private val qrCodeHandler = QRCodeHandler()
     private val qrCodeLauncher =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
             if (result.resultCode == Activity.RESULT_OK) {
                 val qrData = result.data?.getStringExtra("SCAN_RESULT")
                 handleQRCodeResult(qrData)
             } else {
-                Log.d("HomeFragment", "相机调用失败或取消")
+                Log.d("camera", "相机调用失败或取消")
             }
         }
 
@@ -60,36 +59,6 @@ class PairFragment : Fragment() {
         binding.viewCodePair.setOnClickListener { checkCameraPermissionAndLaunch() }
         return binding.root
     }
-
-    /* 模拟已经连接的设备的数据 */
-    private val deviceList: List<DeviceInfo> = listOf(
-        DeviceInfo(
-            R.drawable.baseline_computer_24,
-            "Administrator@PC-DIRECTOWAY",
-            R.drawable.baseline_settings_24,
-        ),
-        DeviceInfo(
-            R.drawable.baseline_computer_24,
-            "User@Laptop",
-            R.drawable.baseline_settings_24,
-        ),
-        DeviceInfo(
-            R.drawable.baseline_computer_24,
-            "Mobile Device",
-            R.drawable.baseline_settings_24,
-        ),
-        DeviceInfo(
-            R.drawable.baseline_computer_24,
-            "Tablet Device",
-            R.drawable.baseline_settings_24,
-        ),
-
-        DeviceInfo(
-            R.drawable.baseline_computer_24,
-            "Smart TV",
-            R.drawable.baseline_settings_24,
-        ),
-    )
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
@@ -108,13 +77,14 @@ class PairFragment : Fragment() {
         val deviceView: CardView = view.findViewById(R.id.view_paired_deviceInfo)
 
         // 创建适配器并绑定设备信息并根据设备数量设置 CardView 的可见性
+        val deviceHandler = DeviceHandler(deviceContainer)
+        val deviceList = deviceHandler.getDeviceInfo(requireContext())
         if (deviceList.isEmpty()) {
             // 已连接的设备数为0的时候不显示整个cardview
             deviceView.visibility = View.GONE
         } else {
             deviceView.visibility = View.VISIBLE
-            val deviceAdapter = DeviceAdapter(deviceList, deviceContainer)
-            deviceAdapter.bind()
+            deviceHandler.bindDeviceInfo(deviceList)
         }
 
         val switchTotal: SwitchMaterial = view.findViewById(R.id.switch_total)
@@ -203,23 +173,27 @@ class PairFragment : Fragment() {
         return null
     }
 
-
+    /* 检查相机权限并启动相机 */
     private fun checkCameraPermissionAndLaunch() {
         when {
             ContextCompat.checkSelfPermission(
                 requireContext(), Manifest.permission.CAMERA
             ) == PackageManager.PERMISSION_GRANTED -> {
-                val intent = Intent(activity, CaptureQRCodeActivity::class.java)
+                val intent =
+                    Intent(activity, CaptureQRCodeActivity::class.java) // 有相机权限直接启动扫码Activity
                 qrCodeLauncher.launch(intent)
             }
 
-            shouldShowRequestPermissionRationale(Manifest.permission.CAMERA) -> { /* Show rationale */
+            shouldShowRequestPermissionRationale(Manifest.permission.CAMERA) -> {
+                // 用户页面弹出对话框申请权限
             }
 
+            // 没有相机权限则请求权限
             else -> requestCameraPermissionLauncher.launch(Manifest.permission.CAMERA)
         }
     }
 
+    // 请求相机权限
     private val requestCameraPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
             if (isGranted) {
@@ -230,13 +204,20 @@ class PairFragment : Fragment() {
             }
         }
 
+    // 处理扫码结果
     private fun handleQRCodeResult(qrData: String?) {
-        val pairingInfo = QRCodeProcessor.parseQRCodeData(qrData)
-        if (pairingInfo != null) {
-            val mqttManager = MQTTManager(requireContext(), pairingInfo)
-            mqttManager.connect(onConnected = { mqttManager.subscribe("your/topic", {}, {}) },
-                onFailure = { Log.d("HomeFragment", "连接MQTT失败") })
-        }
+        qrData?.let {
+            val pairingInfo = qrCodeHandler.decryptAndVerify(it)
+            pairingInfo?.let {
+                val webSocketHandler = WebSocketHandler.getInstance()
+
+                webSocketHandler.connectToWebSocket(
+                    requireContext(), pairingInfo
+                ) { context, pairingInfo ->
+                    webSocketHandler.showPairedSuccessDialog(context, pairingInfo)
+                }
+            } ?: Log.e("Connect", "解密或签名验证失败")
+        } ?: Log.e("Connect", "二维码数据为空")
     }
 
     override fun onDestroyView() {
