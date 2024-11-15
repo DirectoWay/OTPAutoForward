@@ -57,7 +57,7 @@
             </androidx.constraintlayout.widget.ConstraintLayout>
         </androidx.cardview.widget.CardView>
 
-        <!-- 开关描述 -->
+        <!-- 关闭转发开关后的描述和提示 -->
         <androidx.cardview.widget.CardView
             android:id="@+id/view_switch_warn"
             android:layout_width="match_parent"
@@ -311,6 +311,7 @@
                 android:textColor="#464646"
                 android:textSize="13sp"
                 android:textStyle="bold"
+                android:visibility="invisible"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintHorizontal_bias="0.5"

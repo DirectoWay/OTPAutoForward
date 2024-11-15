@@ -40,7 +40,6 @@
         <activity android:name=".CaptureQRCodeActivity" />
 
         <!-- 短信监控服务 -->
-        <service android:name=".service.SmsMonitoringService" />
         <receiver
             android:name=".service.SmsReceiver"
             android:exported="true"

@@ -21,13 +21,10 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.example.autocaptcha.databinding.ActivityMainBinding
-import com.example.autocaptcha.service.SmsMonitoringService
 import android.Manifest
-import android.annotation.SuppressLint
 
 class MainActivity : AppCompatActivity() {
     private lateinit var networkReceiver: BroadcastReceiver
-
     private lateinit var appBarConfiguration: AppBarConfiguration
     private lateinit var binding: ActivityMainBinding
     private val smsPermissionCode = 100
@@ -40,8 +37,9 @@ class MainActivity : AppCompatActivity() {
 
         setSupportActionBar(binding.appBarMain.toolbar)
 
+        // 点击右下角短信 icon 的触发事件
         binding.appBarMain.fab.setOnClickListener { view ->
-            Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG)
+            Snackbar.make(view, "敬请期待", Snackbar.LENGTH_LONG)
                 .setAction("Action", null).setAnchorView(R.id.fab).show()
         }
         val drawerLayout: DrawerLayout = binding.drawerLayout
@@ -51,7 +49,7 @@ class MainActivity : AppCompatActivity() {
         // menu should be considered as top level destinations.
         appBarConfiguration = AppBarConfiguration(
             setOf(
-                R.id.nav_home, R.id.nav_gallery, R.id.nav_slideshow
+                R.id.nav_pair, R.id.nav_gallery, R.id.nav_settings
             ), drawerLayout
         )
         setupActionBarWithNavController(navController, appBarConfiguration)
@@ -60,9 +58,15 @@ class MainActivity : AppCompatActivity() {
         // 检查并请求短信权限
         checkAndRequestSmsPermission()
 
-        // 启动短信监控服务
-        val serviceIntent = Intent(this, SmsMonitoringService::class.java)
-        startService(serviceIntent)
+        // 初始化 settings 配置
+        val sharedPreferences = getSharedPreferences("AppPreferences", Context.MODE_PRIVATE)
+        val editor = sharedPreferences.edit()
+
+        // 检查是否有存储的值，如果没有，设置默认值
+        if (!sharedPreferences.contains("forwardOnlyScreenLocked")) {
+            editor.putBoolean("forwardOnlyScreenLocked", true)
+            editor.apply()
+        }
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
@@ -75,7 +79,6 @@ class MainActivity : AppCompatActivity() {
         val navController = findNavController(R.id.nav_host_fragment_content_main)
         return navController.navigateUp(appBarConfiguration) || super.onSupportNavigateUp()
     }
-
 
     override fun onResume() {
         super.onResume()

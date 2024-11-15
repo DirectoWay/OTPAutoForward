@@ -5,8 +5,8 @@
 
     <group android:checkableBehavior="single">
         <item
-            android:id="@+id/nav_home"
-            android:icon="@drawable/ic_menu_camera"
+            android:id="@+id/nav_pair"
+            android:icon="@drawable/baseline_wifi_24"
             android:iconTint="@color/black"
             android:textColor="@color/black"
             android:title="@string/menu_home" />
@@ -15,8 +15,9 @@
             android:icon="@drawable/ic_menu_gallery"
             android:title="@string/menu_gallery" />
         <item
-            android:id="@+id/nav_slideshow"
-            android:icon="@drawable/ic_menu_slideshow"
-            android:title="@string/menu_slideshow" />
+            android:id="@+id/nav_settings"
+            android:icon="@drawable/baseline_settings_24"
+            android:title="设置"
+            tools:ignore="HardcodedText" />
     </group>
 </menu>

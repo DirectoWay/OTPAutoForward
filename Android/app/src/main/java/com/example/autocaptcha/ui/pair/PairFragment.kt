@@ -21,6 +21,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.LinearLayout
+import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
@@ -75,14 +76,17 @@ class PairFragment : Fragment() {
 
         val deviceContainer: LinearLayout = view.findViewById(R.id.layout_paired_deviceInfo)
         val deviceView: CardView = view.findViewById(R.id.view_paired_deviceInfo)
+        val deviceTitle: TextView = view.findViewById(R.id.text_paired_device)
 
         // 创建适配器并绑定设备信息并根据设备数量设置 CardView 的可见性
         val deviceHandler = DeviceHandler(deviceContainer)
         val deviceList = deviceHandler.getDeviceInfo(requireContext())
         if (deviceList.isEmpty()) {
             // 已连接的设备数为0的时候不显示整个cardview
+            deviceTitle.visibility = View.INVISIBLE
             deviceView.visibility = View.GONE
         } else {
+            deviceTitle.visibility = View.VISIBLE
             deviceView.visibility = View.VISIBLE
             deviceHandler.bindDeviceInfo(deviceList)
         }
