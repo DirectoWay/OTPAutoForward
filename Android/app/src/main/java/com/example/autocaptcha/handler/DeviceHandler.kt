@@ -1,27 +1,35 @@
 package com.example.autocaptcha.handler
 
 import android.content.Context
+import android.content.Intent
 import android.view.LayoutInflater
-import android.widget.ImageView
 import android.widget.LinearLayout
-import android.widget.TextView
+import com.example.autocaptcha.PairedDeviceSettingsActivity
 import com.example.autocaptcha.R
+import com.example.autocaptcha.databinding.FragmentPairBinding
+import com.example.autocaptcha.databinding.FragmentPairDeviceinfoBinding
 
-/* DeviceInfo类用于保存已经配对的设备信息 */
-data class DeviceInfo(val typeIcon: Int, val deviceName: String, val settingIcon: Int)
+/* DeviceInfo 类用于保存已经配对的设备信息 */
+data class DeviceInfo(
+    val typeIcon: Int,
+    val deviceName: String,
+    val settingIcon: Int,
+    val deviceId: String
+)
 
-/* 动态的给配对页面的RecyclerView中生成元素, 用以动态生成已经配对的设备信息 */
+/* 动态的给配对页面的 RecyclerView 中生成元素, 用以动态生成已经配对的设备信息 */
 class DeviceHandler(private val container: LinearLayout) {
 
     fun getDeviceInfo(context: Context): List<DeviceInfo> {
-        val webSocketHandler = WebSocketHandler.getInstance();
-        val allDevicesInfo = webSocketHandler.getAllDevicesInfo(context);
+        val webSocketHandler = WebSocketHandler.getInstance()
+        val allDevicesInfo = webSocketHandler.getAllDevicesInfo(context)
 
         return allDevicesInfo.map { pairingInfo ->
             DeviceInfo(
                 typeIcon = getDeviceIconForType(pairingInfo.deviceType),
                 deviceName = pairingInfo.deviceName,
-                settingIcon = R.drawable.baseline_settings_24 // 设置图标
+                settingIcon = R.drawable.baseline_settings_24, // 设置图标
+                deviceId = pairingInfo.deviceId
             )
         }
     }
@@ -40,17 +48,26 @@ class DeviceHandler(private val container: LinearLayout) {
     fun bindDeviceInfo(devices: List<DeviceInfo>) {
         container.removeAllViews() // 清空之前的视图
         for (device in devices) {
-            val itemView = LayoutInflater.from(container.context)
-                .inflate(R.layout.fragment_pair_deviceinfo, container, false)
-            val iconType: ImageView = itemView.findViewById(R.id.icon_paired_deviceType)
-            val iconSetting: ImageView = itemView.findViewById(R.id.icon_paired_setting)
-            val name: TextView = itemView.findViewById(R.id.text_paired_deviceName)
+            val binding = FragmentPairDeviceinfoBinding.inflate(
+                LayoutInflater.from(container.context), container, false
+            )
 
-            iconType.setImageResource(device.typeIcon)
-            iconSetting.setImageResource(device.settingIcon)
-            name.text = device.deviceName
+            binding.iconPairedDeviceType.setImageResource(device.typeIcon)
+            binding.iconPairedSetting.setImageResource(device.settingIcon)
+            binding.textPairedDeviceName.text = device.deviceName
 
-            container.addView(itemView) // 将设备视图添加到容器
+            // 给已配对的设备绑定点击事件
+            binding.viewPairedDeviceContainer.setOnClickListener {
+                val intent =
+                    Intent(container.context, PairedDeviceSettingsActivity::class.java).apply {
+                        putExtra("DEVICE_ID", device.deviceId)
+                        putExtra("DEVICE_Name", device.deviceName)
+                        putExtra("DEVICE_TYPE_ICON", device.typeIcon)
+                    }
+                container.context.startActivity(intent)
+            }
+            container.addView(binding.root) // 将设备视图添加到容器
         }
     }
+
 }

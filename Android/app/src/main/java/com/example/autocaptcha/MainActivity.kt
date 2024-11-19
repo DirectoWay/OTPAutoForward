@@ -22,25 +22,41 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.example.autocaptcha.databinding.ActivityMainBinding
 import android.Manifest
+import android.os.Build
+import androidx.annotation.RequiresApi
+import androidx.lifecycle.ViewModelProvider
+import com.example.autocaptcha.ui.pair.DevicePairViewModel
 
 class MainActivity : AppCompatActivity() {
+    // 用于获取 MainActivity 的实例
+    companion object {
+        private var instance: MainActivity? = null
+        fun getInstance(): MainActivity {
+            return instance ?: throw IllegalStateException("MainActivity is not initialized yet!")
+        }
+    }
+
+    private lateinit var devicePairViewModel: DevicePairViewModel
     private lateinit var networkReceiver: BroadcastReceiver
     private lateinit var appBarConfiguration: AppBarConfiguration
     private lateinit var binding: ActivityMainBinding
     private val smsPermissionCode = 100
 
+    @RequiresApi(Build.VERSION_CODES.TIRAMISU)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
+        instance = this
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
         setSupportActionBar(binding.appBarMain.toolbar)
 
+        devicePairViewModel = ViewModelProvider(this)[DevicePairViewModel::class.java]
+
         // 点击右下角短信 icon 的触发事件
         binding.appBarMain.fab.setOnClickListener { view ->
-            Snackbar.make(view, "敬请期待", Snackbar.LENGTH_LONG)
-                .setAction("Action", null).setAnchorView(R.id.fab).show()
+            Snackbar.make(view, "敬请期待", Snackbar.LENGTH_LONG).setAction("Action", null)
+                .setAnchorView(R.id.fab).show()
         }
         val drawerLayout: DrawerLayout = binding.drawerLayout
         val navView: NavigationView = binding.navView
@@ -107,25 +123,19 @@ class MainActivity : AppCompatActivity() {
         val smsPermission = Manifest.permission.RECEIVE_SMS
         val readSmsPermission = Manifest.permission.READ_SMS
         if (ContextCompat.checkSelfPermission(
-                this,
-                smsPermission
+                this, smsPermission
             ) != PackageManager.PERMISSION_GRANTED || ContextCompat.checkSelfPermission(
-                this,
-                readSmsPermission
+                this, readSmsPermission
             ) != PackageManager.PERMISSION_GRANTED
         ) {
             ActivityCompat.requestPermissions(
-                this,
-                arrayOf(smsPermission, readSmsPermission),
-                smsPermissionCode
+                this, arrayOf(smsPermission, readSmsPermission), smsPermissionCode
             )
         }
     }
 
     override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<out String>,
-        grantResults: IntArray
+        requestCode: Int, permissions: Array<out String>, grantResults: IntArray
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == smsPermissionCode) {
@@ -134,6 +144,13 @@ class MainActivity : AppCompatActivity() {
             } else {
                 Log.d("SMS", "短信权限获取失败")
             }
+        }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        if (instance === this) {
+            instance = null
         }
     }
 }

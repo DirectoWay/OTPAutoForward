@@ -20,23 +20,20 @@ import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.LinearLayout
-import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.ViewModelProvider
 import com.example.autocaptcha.CaptureQRCodeActivity
 import com.example.autocaptcha.R
 import com.example.autocaptcha.databinding.FragmentPairBinding
-import androidx.cardview.widget.CardView
-import androidx.constraintlayout.widget.ConstraintLayout
 import com.example.autocaptcha.handler.DeviceHandler
 import com.example.autocaptcha.handler.QRCodeHandler
 import com.example.autocaptcha.handler.WebSocketHandler
-import com.google.android.material.switchmaterial.SwitchMaterial
 import java.net.Inet4Address
 
 class PairFragment : Fragment() {
+    private lateinit var devicePairViewModel: DevicePairViewModel
     private var _binding: FragmentPairBinding? = null
     private val binding get() = _binding!!
     private val qrCodeHandler = QRCodeHandler()
@@ -64,43 +61,51 @@ class PairFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        // 获取设备名称
+        // 前台获取设备名称与 IP 地址
         val deviceName = "${Build.MANUFACTURER} ${Build.MODEL}"
-
-        // 获取设备IP地址
         val deviceIPAddress = getDeviceIPAddress(requireContext())
-
-        // 将设备名称和IP地址设置到 TextView
         binding.deviceName.text = deviceName
         binding.deviceIPAddress.text = deviceIPAddress
 
-        val deviceContainer: LinearLayout = view.findViewById(R.id.layout_paired_deviceInfo)
-        val deviceView: CardView = view.findViewById(R.id.view_paired_deviceInfo)
-        val deviceTitle: TextView = view.findViewById(R.id.text_paired_device)
-
-        // 创建适配器并绑定设备信息并根据设备数量设置 CardView 的可见性
-        val deviceHandler = DeviceHandler(deviceContainer)
-        val deviceList = deviceHandler.getDeviceInfo(requireContext())
-        if (deviceList.isEmpty()) {
-            // 已连接的设备数为0的时候不显示整个cardview
-            deviceTitle.visibility = View.INVISIBLE
-            deviceView.visibility = View.GONE
-        } else {
-            deviceTitle.visibility = View.VISIBLE
-            deviceView.visibility = View.VISIBLE
-            deviceHandler.bindDeviceInfo(deviceList)
+        devicePairViewModel = ViewModelProvider(requireActivity())[DevicePairViewModel::class.java]
+        devicePairViewModel.refreshPairedDevice.observe(viewLifecycleOwner) {
+            refreshPairedDevice()
         }
 
-        val switchTotal: SwitchMaterial = view.findViewById(R.id.switch_total)
-        val retractableContainer: ConstraintLayout =
-            view.findViewById(R.id.container_switch_retractable)
-        val switchWarnView: CardView = view.findViewById(R.id.view_switch_warn)
-        val switchTotalView: CardView = view.findViewById(R.id.view_total_switch)
+        // 开启 app 时初始化一次已配对的设备信息
+        refreshPairedDevice()
+        totalSwitchStowedAnimation()
+    }
+
+    /**
+     * 创建适配器并绑定设备信息并根据设备数量设置 CardView 的可见性
+     */
+    private fun refreshPairedDevice() {
+        val deviceHandler = DeviceHandler(binding.layoutPairedDeviceInfo)
+        val deviceList = deviceHandler.getDeviceInfo(requireContext())
+        if (deviceList.isEmpty()) {
+            // 已连接的设备数为0的时候不显示整个 CardView
+            binding.textPairedDevice.visibility = View.INVISIBLE
+            binding.viewPairedDeviceInfo.visibility = View.GONE
+        } else {
+            binding.textPairedDevice.visibility = View.VISIBLE
+            binding.viewPairedDeviceInfo.visibility = View.VISIBLE
+            deviceHandler.bindDeviceInfo(deviceList)
+        }
+    }
+
+    /**
+     * 拨动 "短信转发" 开关时的动画效果
+     */
+    private fun totalSwitchStowedAnimation() {
+        val retractableContainer = binding.containerSwitchRetractable
+        val switchWarnView = binding.viewSwitchWarn
+        val switchTotalView = binding.viewTotalSwitch
 
         // 初始状态设置
         switchWarnView.visibility = View.INVISIBLE
 
-        switchTotal.setOnCheckedChangeListener { _, isChecked ->
+        binding.switchTotal.setOnCheckedChangeListener { _, isChecked ->
             if (isChecked) {
                 // 打开状态，展开 retractableContainer，隐藏 switchWarnView
                 switchWarnView.animate().alpha(0f)
@@ -156,7 +161,7 @@ class PairFragment : Fragment() {
         }
     }
 
-    /* 获取当前设备的 IP地址 */
+    // 获取当前设备的 IP 地址
     private fun getDeviceIPAddress(context: Context): String? {
         val connectivityManager =
             context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
@@ -177,7 +182,7 @@ class PairFragment : Fragment() {
         return null
     }
 
-    /* 检查相机权限并启动相机 */
+    // 检查相机权限并启动相机
     private fun checkCameraPermissionAndLaunch() {
         when {
             ContextCompat.checkSelfPermission(
@@ -218,6 +223,7 @@ class PairFragment : Fragment() {
                 webSocketHandler.connectToWebSocket(
                     requireContext(), pairingInfo
                 ) { context, pairingInfo ->
+                    devicePairViewModel.refreshPairedDevice.value = Unit
                     webSocketHandler.showPairedSuccessDialog(context, pairingInfo)
                 }
             } ?: Log.e("Connect", "解密或签名验证失败")

@@ -8,6 +8,12 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 
+    <com.example.autocaptcha.CustomViewfinderView
+        android:id="@+id/custom_viewfinder"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+
     <!-- 取景框 -->
     <!--<View
         android:id="@+id/capture_overlay"

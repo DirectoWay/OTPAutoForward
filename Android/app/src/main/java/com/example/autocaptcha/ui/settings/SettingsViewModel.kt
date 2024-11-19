@@ -1,12 +1,40 @@
 package com.example.autocaptcha.ui.settings
 
+import android.app.Application
+import android.content.Context
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
-import androidx.lifecycle.ViewModel
 
-class SettingsViewModel : ViewModel() {
+class SettingsViewModel(application: Application) : AndroidViewModel(application) {
+    private val sharedPreferences =
+        application.getSharedPreferences("AppPreferences", Context.MODE_PRIVATE)
+    private val editor = sharedPreferences.edit()
 
-    private val _text = MutableLiveData<String>().apply {
+    private val _settings = MutableLiveData<Map<String, Boolean>>()
+    val settings: LiveData<Map<String, Boolean>> = _settings
+
+    init {
+        loadSettings()
     }
-    val text: LiveData<String> = _text
+
+    fun updateSetting(key: String, value: Boolean) {
+        editor.putBoolean(key, value).apply()
+        loadSettings()
+    }
+
+    private fun loadSettings() {
+        val map = mutableMapOf(
+            "forwardOnlyScreenLocked" to sharedPreferences.getBoolean(
+                "forwardOnlyScreenLocked", true
+            ),
+        )
+        // 设置默认值
+        if (!sharedPreferences.contains("forwardOnlyScreenLocked")) {
+            editor.putBoolean("forwardOnlyScreenLocked", true)
+            editor.apply()
+        }
+
+        _settings.value = map
+    }
 }

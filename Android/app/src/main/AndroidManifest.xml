@@ -38,6 +38,7 @@
             </intent-filter>
         </activity>
         <activity android:name=".CaptureQRCodeActivity" />
+        <activity android:name=".PairedDeviceSettingsActivity" />
 
         <!-- 短信监控服务 -->
         <receiver

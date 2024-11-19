@@ -1,13 +1,11 @@
 package com.example.autocaptcha.ui.settings
 
-import android.content.Context
 import android.os.Bundle
-import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
-import com.example.autocaptcha.MainActivity
+import androidx.lifecycle.ViewModelProvider
 import com.example.autocaptcha.databinding.FragmentSettingsBinding
 
 class SettingsFragment : Fragment() {
@@ -25,14 +23,16 @@ class SettingsFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        val sharedPreferences =
-            requireActivity().getSharedPreferences("AppPreferences", Context.MODE_PRIVATE)
-        val editor = sharedPreferences.edit()
+        val viewModel = ViewModelProvider(this)[SettingsViewModel::class.java]
+
+        // 观察开关变动
+        viewModel.settings.observe(viewLifecycleOwner) { settings ->
+            binding.switchForwardScreenlocked.isChecked =
+                settings["forwardOnlyScreenLocked"] ?: true
+        }
 
         binding.switchForwardScreenlocked.setOnCheckedChangeListener { _, isChecked ->
-            editor.putBoolean("forwardOnlyScreenLocked", isChecked)
-            editor.apply()
-            Log.d("SettingsFragment", "Switch 状态改变: $isChecked")
+            viewModel.updateSetting("forwardOnlyScreenLocked", isChecked)
         }
     }
 
