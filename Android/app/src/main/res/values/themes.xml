@@ -1,7 +1,11 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <!-- Base application theme. -->
-    <style name="Theme.AutoCAPTCHA" parent="Theme.MaterialComponents.DayNight.NoActionBar.Bridge">
+    <style name="Theme.AutoCAPTCHA" parent="Theme.MaterialComponents.Light.NoActionBar.Bridge">
         <!-- Primary brand color. -->
+        <!-- <item name="android:windowTranslucentStatus">true</item>
+        <item name="android:windowDrawsSystemBarBackgrounds">false</item>-->
+        <item name="android:statusBarColor">#F5F5F5</item> <!-- 状态栏颜色 -->
+        <item name="android:windowLightStatusBar">true</item> <!-- 状态栏图标和时间颜色 -->
         <item name="colorPrimary">@color/white</item>
         <item name="colorPrimaryVariant">@color/white</item>
         <item name="colorOnPrimary">@color/black</item>
@@ -22,11 +26,6 @@
     <style name="ToolbarStyle" parent="Widget.MaterialComponents.Toolbar">
         <item name="titleTextColor">@color/black</item> <!-- 设置标题文字颜色 -->
         <item name="trackTint">@color/black</item> <!-- 设置导航图标颜色 -->
-    </style>
-
-    <style name="Theme.AutoCAPTCHA.NoActionBar">
-        <item name="windowActionBar">false</item>
-        <item name="windowNoTitle">true</item>
     </style>
 
     <!-- 自定义CardView样式 -->

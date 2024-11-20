@@ -7,8 +7,8 @@
     android:scrollbars="none">
 
     <androidx.constraintlayout.widget.ConstraintLayout
-        android:layout_width="match_parent"
         android:id="@+id/layout_pair_container"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:background="#F5F5F5"
         android:visibility="visible"
@@ -238,9 +238,9 @@
             <View
                 android:id="@+id/pairModeLine"
                 android:layout_width="0dp"
-                android:layout_height="0.1dp"
+                android:layout_height="1.15dp"
                 android:background="#D2D2D2"
-                android:translationZ="1.1dp"
+                android:translationZ="1.001dp"
                 app:layout_constraintBottom_toTopOf="@id/view_code_pair"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
@@ -279,7 +279,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginStart="25dp"
-                        android:layout_marginTop="10dp"
+                        android:layout_marginTop="7.5dp"
                         android:text="使用配对码配对设备"
                         android:textColor="@color/black"
                         android:textSize="17sp"

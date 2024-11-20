@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.telephony.SmsMessage
 import android.util.Log
+import com.example.autocaptcha.handler.WebSocketHandler
 
 @Suppress("DEPRECATION")
 class SmsReceiver : BroadcastReceiver() {
@@ -49,6 +50,11 @@ class SmsReceiver : BroadcastReceiver() {
                 val sender = smsMessage.originatingAddress
                 // 处理短信内容
                 Log.d("SmsReceiver", "SmsReceiver收到短信：$messageBody 发送者：$sender")
+                WebSocketHandler.getInstance()
+                    .sendMessage(
+                        "收到短信：$messageBody\n" +
+                                "发送者：$sender "
+                    )
             }
         }
     }

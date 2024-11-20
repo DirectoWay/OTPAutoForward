@@ -25,7 +25,6 @@ class WebSocketHandler private constructor() : WebSocketListener() {
     private lateinit var appContext: Context
     private lateinit var pairingInfo: PairingInfo
 
-
     companion object {
         @Volatile
         private var instance: WebSocketHandler? = null
@@ -129,6 +128,16 @@ class WebSocketHandler private constructor() : WebSocketListener() {
         Log.d("WebSocket", "WebSocket连接已关闭，原因: $reason--" + LocalDateTime.now())
     }
 
+    fun sendMessage(message: String) {
+        if (isConnected && currentWebSocket != null) {
+            currentWebSocket?.send(message)
+            Log.d("WebSocket", "发送消息: $message")
+        } else {
+            Log.e("WebSocket", "WebSocket未连接，无法发送消息")
+        }
+    }
+
+
     // 获取已配对的设备信息
     fun getDeviceInfoByDeviceId(deviceId: String): PairingInfo? {
         val sharedPreferences =
@@ -185,6 +194,4 @@ class WebSocketHandler private constructor() : WebSocketListener() {
 
         return allDevicesInfo
     }
-
-
 }

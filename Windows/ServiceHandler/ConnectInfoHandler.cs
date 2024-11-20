@@ -10,6 +10,9 @@ namespace WinCAPTCHA.ServiceHandler;
 
 public static class ConnectInfoHandler
 {
+    /**
+     * 获取本机 IP 地址
+     */
     public static string? GetLocalIpAddress()
     {
         try
@@ -17,7 +20,6 @@ public static class ConnectInfoHandler
             using var socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, 0);
             socket.Connect("www.baidu.com", 80); // Ping一下百度的地址以获取IP
             if (socket.LocalEndPoint is not IPEndPoint endPoint) throw new Exception("无法获取本地IP地址的端点信息。");
-            Console.WriteLine("本机当前的IP地址为" + endPoint.Address);
             return endPoint.Address.ToString();
         }
         catch (Exception ex)
@@ -27,7 +29,9 @@ public static class ConnectInfoHandler
         }
     }
 
-    // 通过网络适配器品牌来获取 IP 地址
+    /**
+     * 通过网络适配器品牌来获取 IP 地址
+     */
     public static string? GetLocalIpAddressByBrand()
     {
         // 获取真实 IP, 排除掉类似于 zerotier和 virtualbox 这样的虚拟 IP
@@ -60,6 +64,9 @@ public static class ConnectInfoHandler
         }
     }
 
+    /**
+     * 获取本设备的设备类型, 如笔记本电脑 台式电脑等
+     */
     public static string GetDeviceType()
     {
         var deviceType = "Unknown";
@@ -92,6 +99,9 @@ public static class ConnectInfoHandler
         return deviceType;
     }
 
+    /**
+     * 获取本设备的 ID
+     */
     public static string? GetDeviceUniqueId()
     {
         var uniqueId = "Unknown";
@@ -110,7 +120,6 @@ public static class ConnectInfoHandler
             throw;
         }
 
-        Console.WriteLine("设备的ID为" + uniqueId);
         return uniqueId;
     }
 }

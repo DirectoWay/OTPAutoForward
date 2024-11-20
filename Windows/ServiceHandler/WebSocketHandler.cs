@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Net;
 using System.Net.WebSockets;
 using System.Text;
@@ -10,8 +11,23 @@ namespace WinCAPTCHA.ServiceHandler;
 /* 用于启动 WebSocket 服务器 */
 public class WebSocketHandler
 {
-    private HttpListener? _httpListener; // WebSocket 服务端
-    private readonly SemaphoreSlim _startStopSemaphore = new(1, 1); // 控制启动和停止的并发访问
+    private HttpListener? _httpListener;
+
+    /**
+     * 控制 WebSocket 启动和停止时的并发访问
+     */
+    private readonly SemaphoreSlim _startStopSemaphore = new(1, 1);
+
+    /**
+     * 用于存储从 App 端接收到的消息
+     */
+    private static readonly ConcurrentQueue<string> ReceivedMessages = new();
+
+    /**
+     * 订阅消息事件
+     */
+    public event Action<string>? OnMessageReceived;
+
 
     public async Task StartWebSocketServer()
     {
@@ -29,14 +45,12 @@ public class WebSocketHandler
                 IPAddress? ipAddress;
                 try
                 {
-                    // 先尝试获取本机 IP, 用于启动 WebSocket 服务器
                     ipAddress = IPAddress.Parse(ConnectInfoHandler.GetLocalIpAddress() ?? string.Empty);
                 }
                 catch (Exception ex)
                 {
-                    // 获取本机 IP失败, 使用默认 IP 地址（监听所有网络接口）
                     Console.WriteLine($"解析IP地址时发生错误: {ex.Message}");
-                    ipAddress = IPAddress.Any;
+                    ipAddress = IPAddress.Any; // 使用默认 IP 地址（监听所有网络接口）
                 }
 
                 _httpListener = new HttpListener();
@@ -58,7 +72,9 @@ public class WebSocketHandler
         }
     }
 
-    // 持续监听并接受来自客户端的 WebSocket 连接请求
+    /**
+     * 持续监听并接受来自客户端的 WebSocket 连接请求
+     */
     private async Task AcceptWebSocketClientsAsync()
     {
         while (_httpListener?.IsListening == true)
@@ -77,8 +93,10 @@ public class WebSocketHandler
         }
     }
 
-    // 处理客户端的 WebSocket 连接请求
-    private static async Task HandleWebSocketConnectionAsync(WebSocket webSocket)
+    /**
+     * 处理客户端的 WebSocket 连接请求
+     */
+    private async Task HandleWebSocketConnectionAsync(WebSocket webSocket)
     {
         var buffer = new byte[1024];
         while (webSocket.State == WebSocketState.Open)
@@ -93,12 +111,31 @@ public class WebSocketHandler
             }
             else
             {
-                var message = System.Text.Encoding.UTF8.GetString(buffer, 0, result.Count);
-                Console.WriteLine($"收到消息: {message}"); // 发送响应
-                const string responseMessage = "WebSocket 服务器已初始化";
-                var responseBuffer = System.Text.Encoding.UTF8.GetBytes(responseMessage);
+                var message = Encoding.UTF8.GetString(buffer, 0, result.Count);
+                Console.WriteLine(DateTime.Now + message);
+                if (string.IsNullOrWhiteSpace(message))
+                {
+                    Console.WriteLine("收到空消息，忽略处理");
+                    continue;
+                }
+
+                ReceivedMessages.Enqueue(message);
+
+                try
+                {
+                    OnMessageReceived?.Invoke(message);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"消息处理订阅触发异常: {ex.Message}");
+                }
+
+                // 发送确认消息给 App 端
+                var responseMessage = $"已收到消息: {message}";
+                var responseBuffer = Encoding.UTF8.GetBytes(responseMessage);
                 await webSocket.SendAsync(new ArraySegment<byte>(responseBuffer), WebSocketMessageType.Text, true,
                     CancellationToken.None);
+                Console.WriteLine($"{DateTime.Now}已发送确认消息 ");
             }
         }
     }

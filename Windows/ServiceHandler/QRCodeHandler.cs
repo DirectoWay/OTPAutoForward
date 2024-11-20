@@ -16,41 +16,48 @@ namespace WinCAPTCHA.ServiceHandler;
 ///  </summary>
 public static class QRCodeHandler
 {
-    private const string Key = "autoCAPTCHA-encryptedKey"; // 对称加密密钥
-    private static readonly RSA Rsa = RSA.Create(); // RSA加密对象，包含公钥和私钥
+    /**
+     * 对称加密密钥
+     */
+    private const string Key = "autoCAPTCHA-encryptedKey"; 
+    
+    /**
+     * RSA加密对象，包含公钥和私钥
+     */
+    private static readonly RSA Rsa = RSA.Create();
+    
 
-    // 生成带有密文的二维码内容
+    /**
+     * 生成加密后的二维码内容
+     */
     // ReSharper disable once InconsistentNaming
     public static string GenerateEncryptedQRCode(string webSocketServerUrl)
     {
         // 生成临时密钥对
         var windowsPublicKey = Convert.ToBase64String(Rsa.ExportSubjectPublicKeyInfo()); // 把裸公钥转换成 X.509 格式
-        var windowsPrivateKey = Rsa.ExportRSAPrivateKey(); // 私钥留作签名使用
+        var windowsPrivateKey = Rsa.ExportRSAPrivateKey(); // 私钥
 
         // 创建配对信息
         var pairingInfo = new
         {
             serverUrl = webSocketServerUrl,
             windowsPublicKey, // Win端的临时公钥
-            deviceId = ConnectInfoHandler.GetDeviceUniqueId(), // 获取设备Id
-            deviceType = ConnectInfoHandler.GetDeviceType(), // 获取设备类型
-            deviceName = Environment.MachineName // 获取设备名称  
+            deviceId = ConnectInfoHandler.GetDeviceUniqueId(),
+            deviceType = ConnectInfoHandler.GetDeviceType(),
+            deviceName = Environment.MachineName
         };
         var pairingInfoJson = JsonSerializer.Serialize(pairingInfo);
 
-        // 加密配对信息
         var encryptedPairingInfo = EncryptString(pairingInfoJson, Key);
-
-        // 签名 
         var signature = SignData(encryptedPairingInfo, Rsa);
-
-        // 合并加密内容和签名
-        var qrContent = $"{encryptedPairingInfo}.{signature}";
+        var qrContent = $"{encryptedPairingInfo}.{signature}"; // 合并加密内容和签名
 
         return qrContent;
     }
 
-    // 加密内容
+    /**
+     * 加密配对信息
+     */
     private static string EncryptString(string plainText, string key)
     {
         using var aes = Aes.Create();
@@ -70,7 +77,9 @@ public static class QRCodeHandler
         return Convert.ToBase64String(ms.ToArray());
     }
 
-    // 签名加密后的内容
+    /**
+     * 签名加密后的配对信息
+     */
     private static string SignData(string data, RSA rsa)
     {
         var dataBytes = Encoding.UTF8.GetBytes(data);
@@ -78,7 +87,9 @@ public static class QRCodeHandler
         return Convert.ToBase64String(signedBytes);
     }
 
-    // 生成二维码图像
+    /**
+     * 生成二维码图像
+     */
     public static BitmapImage GenerateQrCodeImage(string qrData, int width, int height)
     {
         var qrCodeWriter = new BarcodeWriterPixelData
