@@ -16,11 +16,14 @@ import android.net.Network
 import android.net.NetworkCapabilities
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.cardview.widget.CardView
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
@@ -30,10 +33,13 @@ import com.example.autocaptcha.databinding.FragmentPairBinding
 import com.example.autocaptcha.handler.DeviceHandler
 import com.example.autocaptcha.handler.QRCodeHandler
 import com.example.autocaptcha.handler.WebSocketHandler
+import com.example.autocaptcha.service.SmsForegroundService
+import com.example.autocaptcha.service.WebSocketForegroundService
 import java.net.Inet4Address
 
 class PairFragment : Fragment() {
     private lateinit var devicePairViewModel: DevicePairViewModel
+    private val webSocketHandler: WebSocketHandler = WebSocketHandler.getInstance()
     private var _binding: FragmentPairBinding? = null
     private val binding get() = _binding!!
     private val qrCodeHandler = QRCodeHandler()
@@ -47,14 +53,20 @@ class PairFragment : Fragment() {
             }
         }
 
+    override fun onAttach(context: Context) {
+        super.onAttach(context)
+        webSocketHandler.setAppContext(context.applicationContext)
+        webSocketHandler.setUIContext(context)
+    }
+
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
     ): View {
         _binding = FragmentPairBinding.inflate(inflater, container, false)
 
         // 初始化配对按钮点击事件
-        binding.viewQrPair.setOnClickListener { checkCameraPermissionAndLaunch() }
-        binding.viewCodePair.setOnClickListener { checkCameraPermissionAndLaunch() }
+        binding.viewQrPair.setOnClickListener { checkCameraPermission() }
+        binding.viewCodePair.setOnClickListener { checkCameraPermission() }
         return binding.root
     }
 
@@ -68,100 +80,67 @@ class PairFragment : Fragment() {
         binding.deviceIPAddress.text = deviceIPAddress
 
         devicePairViewModel = ViewModelProvider(requireActivity())[DevicePairViewModel::class.java]
+
+        devicePairViewModel.smsEnabled.observe(viewLifecycleOwner) { smsEnabled ->
+            binding.switchSms.isChecked = smsEnabled ?: true // 观察 "短信转发" 按钮的变更状态
+        }
+
         devicePairViewModel.refreshPairedDevice.observe(viewLifecycleOwner) {
             refreshPairedDevice()
         }
 
-        // 开启 app 时初始化一次已配对的设备信息
-        refreshPairedDevice()
-        totalSwitchStowedAnimation()
+        initializeSmsSwitchState()
     }
 
-    /**
-     * 创建适配器并绑定设备信息并根据设备数量设置 CardView 的可见性
-     */
-    private fun refreshPairedDevice() {
-        val deviceHandler = DeviceHandler(binding.layoutPairedDeviceInfo)
-        val deviceList = deviceHandler.getDeviceInfo(requireContext())
-        if (deviceList.isEmpty()) {
-            // 已连接的设备数为0的时候不显示整个 CardView
-            binding.textPairedDevice.visibility = View.INVISIBLE
-            binding.viewPairedDeviceInfo.visibility = View.GONE
-        } else {
-            binding.textPairedDevice.visibility = View.VISIBLE
-            binding.viewPairedDeviceInfo.visibility = View.VISIBLE
-            deviceHandler.bindDeviceInfo(deviceList)
+    /** 检查相机权限 */
+    private fun checkCameraPermission() {
+        when {
+            ContextCompat.checkSelfPermission(
+                requireContext(), Manifest.permission.CAMERA
+            ) == PackageManager.PERMISSION_GRANTED -> {
+                val intent =
+                    Intent(activity, CaptureQRCodeActivity::class.java) // 有相机权限直接启动扫码Activity
+                qrCodeLauncher.launch(intent)
+            }
+
+            shouldShowRequestPermissionRationale(Manifest.permission.CAMERA) -> {
+                // 用户页面弹出对话框申请权限
+            }
+
+            // 没有相机权限则请求权限
+            else -> requestCameraPermissionLauncher.launch(Manifest.permission.CAMERA)
         }
     }
 
-    /**
-     * 拨动 "短信转发" 开关时的动画效果
-     */
-    private fun totalSwitchStowedAnimation() {
-        val retractableContainer = binding.containerSwitchRetractable
-        val switchWarnView = binding.viewSwitchWarn
-        val switchTotalView = binding.viewTotalSwitch
-
-        // 初始状态设置
-        switchWarnView.visibility = View.INVISIBLE
-
-        binding.switchTotal.setOnCheckedChangeListener { _, isChecked ->
-            if (isChecked) {
-                // 打开状态，展开 retractableContainer，隐藏 switchWarnView
-                switchWarnView.animate().alpha(0f)
-                    .translationY(switchWarnView.height.toFloat()) // 从上到下隐藏
-                    .setDuration(500).setListener(object : AnimatorListenerAdapter() {
-                        override fun onAnimationEnd(animation: Animator) {
-                            switchWarnView.visibility = View.INVISIBLE
-                        }
-                    })
-
-                retractableContainer.visibility = View.VISIBLE
-                retractableContainer.alpha = 0f
-                retractableContainer.translationY = retractableContainer.height.toFloat() // 预设为下方
-                retractableContainer.animate().alpha(1f).translationY(0f) // 从上到下展开
-                    .setDuration(500).setListener(null)
-
-                // 更改 switchTotalView 颜色
-                val colorFrom = ContextCompat.getColor(requireContext(), R.color.white)
-                val colorTo = Color.parseColor("#D7D7D7")
-                val colorAnimation = ValueAnimator.ofObject(ArgbEvaluator(), colorFrom, colorTo)
-                colorAnimation.duration = 300 // 动画时长
-                colorAnimation.addUpdateListener { animator ->
-                    switchTotalView.setCardBackgroundColor(animator.animatedValue as Int)
-                }
-                colorAnimation.start()
+    /** 请求相机权限 */
+    private val requestCameraPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
+            if (isGranted) {
+                val intent = Intent(activity, CaptureQRCodeActivity::class.java)
+                qrCodeLauncher.launch(intent)
             } else {
-
-                // 关闭状态，收起 retractableContainer，显示 switchWarnView
-                retractableContainer.animate().alpha(0f)
-                    .translationY(retractableContainer.height.toFloat()) // 从下到上收起
-                    .setDuration(500).setListener(object : AnimatorListenerAdapter() {
-                        override fun onAnimationEnd(animation: Animator) {
-                            retractableContainer.visibility = View.INVISIBLE
-                        }
-                    })
-
-                switchWarnView.visibility = View.VISIBLE
-                switchWarnView.alpha = 0f
-                switchWarnView.translationY = -switchWarnView.height.toFloat() // 预设为上方
-                switchWarnView.animate().alpha(1f).translationY(0f) // 从上到下显示
-                    .setDuration(500).setListener(null)
-
-                // 更改 switchTotalView 颜色
-                val colorFrom = Color.parseColor("#D7D7D7")
-                val colorTo = ContextCompat.getColor(requireContext(), R.color.white)
-                val colorAnimation = ValueAnimator.ofObject(ArgbEvaluator(), colorFrom, colorTo)
-                colorAnimation.duration = 600 // 动画时长
-                colorAnimation.addUpdateListener { animator ->
-                    switchTotalView.setCardBackgroundColor(animator.animatedValue as Int)
-                }
-                colorAnimation.start()
+                println("相机权限已遭拒绝")
             }
         }
+
+    /** 处理扫码结果 */
+    private fun handleQRCodeResult(qrData: String?) {
+        qrData?.let {
+            val pairingInfo = qrCodeHandler.analyzeQRCode(it)
+            pairingInfo?.let {
+                // 启动 WebSocket 服务
+                val intent = Intent(requireContext(), WebSocketForegroundService::class.java)
+                intent.putExtra("pairingInfo", pairingInfo)
+                ContextCompat.startForegroundService(requireContext(), intent)
+
+                // 延迟等待一下 WebSocket 服务启动完毕
+                Handler(Looper.getMainLooper()).postDelayed({
+                    devicePairViewModel.refreshPairedDevice.value = Unit
+                }, 1500)
+            } ?: Log.e("Connect", "解密或签名验证失败")
+        } ?: Log.e("Connect", "二维码数据为空")
     }
 
-    // 获取当前设备的 IP 地址
     private fun getDeviceIPAddress(context: Context): String? {
         val connectivityManager =
             context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
@@ -182,57 +161,177 @@ class PairFragment : Fragment() {
         return null
     }
 
-    // 检查相机权限并启动相机
-    private fun checkCameraPermissionAndLaunch() {
-        when {
-            ContextCompat.checkSelfPermission(
-                requireContext(), Manifest.permission.CAMERA
-            ) == PackageManager.PERMISSION_GRANTED -> {
-                val intent =
-                    Intent(activity, CaptureQRCodeActivity::class.java) // 有相机权限直接启动扫码Activity
-                qrCodeLauncher.launch(intent)
-            }
+    private fun startSmsService() {
+        val intent = Intent(context, SmsForegroundService::class.java)
+        context?.let { ContextCompat.startForegroundService(it, intent) }
+    }
 
-            shouldShowRequestPermissionRationale(Manifest.permission.CAMERA) -> {
-                // 用户页面弹出对话框申请权限
-            }
+    private fun stopSmsService() {
+        val intent = Intent(context, SmsForegroundService::class.java)
+        context?.stopService(intent)
+    }
 
-            // 没有相机权限则请求权限
-            else -> requestCameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+    /** 刷新已配对的设备 */
+    private fun refreshPairedDevice() {
+        Log.d("refreshPairedDevice", "设备已刷新")
+        val deviceHandler = DeviceHandler(binding.layoutPairedDeviceInfo)
+        val deviceList = deviceHandler.getDeviceInfo()
+        if (deviceList.isEmpty()) {
+            // 已连接的设备数为0的时候不显示整个 CardView
+            binding.textPairedDevice.visibility = View.INVISIBLE
+            binding.viewPairedDeviceInfo.visibility = View.GONE
+        } else {
+            binding.textPairedDevice.visibility = View.VISIBLE
+            binding.viewPairedDeviceInfo.visibility = View.VISIBLE
+            deviceHandler.bindDeviceInfo(deviceList)
         }
     }
 
-    // 请求相机权限
-    private val requestCameraPermissionLauncher =
-        registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
-            if (isGranted) {
-                val intent = Intent(activity, CaptureQRCodeActivity::class.java)
-                qrCodeLauncher.launch(intent)
+    /** "短信转发" 监听器 */
+    private fun smsSwitchListener() {
+        binding.switchSms.setOnCheckedChangeListener { _, isChecked ->
+            if (isChecked) {
+                expandAnimation()
+                devicePairViewModel.updateSmsEnabled(true)
+                startSmsService()
             } else {
-                println("相机权限已遭拒绝")
+                collapseAnimation()
+                devicePairViewModel.updateSmsEnabled(false)
+                stopSmsService()
             }
         }
+    }
 
-    // 处理扫码结果
-    private fun handleQRCodeResult(qrData: String?) {
-        qrData?.let {
-            val pairingInfo = qrCodeHandler.decryptAndVerify(it)
-            pairingInfo?.let {
-                val webSocketHandler = WebSocketHandler.getInstance()
+    /** 初始化配对页面的静态 UI */
+    private fun initializeSmsSwitchState() {
+        val smsEnabled = devicePairViewModel.smsEnabled.value ?: true
 
-                webSocketHandler.connectToWebSocket(
-                    requireContext(), pairingInfo
-                ) { context, pairingInfo ->
-                    devicePairViewModel.refreshPairedDevice.value = Unit
-                    webSocketHandler.showPairedSuccessDialog(context, pairingInfo)
+        // 禁用监听器，防止触发动画
+        binding.switchSms.setOnCheckedChangeListener(null)
+        binding.switchSms.isChecked = smsEnabled
+
+        if (smsEnabled) {
+            setExpandedState()
+        } else {
+            setCollapsedState()
+        }
+
+        smsSwitchListener()
+    }
+
+    /** 展开状态的静态 UI */
+    private fun setExpandedState() {
+        binding.containerSwitchRetractable.visibility = View.VISIBLE
+        binding.containerSwitchRetractable.alpha = 1f
+        binding.containerSwitchRetractable.translationY = 0f
+
+        binding.viewSwitchWarn.visibility = View.INVISIBLE
+        binding.viewSwitchWarn.alpha = 0f
+        binding.viewSwitchWarn.translationY = binding.viewSwitchWarn.height.toFloat()
+
+        changeSwitchColor(
+            binding.viewSmsSwitch,
+            ContextCompat.getColor(requireContext(), R.color.white),
+            Color.parseColor("#D7D7D7"),
+            0 // 直接无动画
+        )
+    }
+
+    /** 收起状态的静态 UI */
+    private fun setCollapsedState() {
+        binding.containerSwitchRetractable.visibility = View.INVISIBLE
+        binding.containerSwitchRetractable.alpha = 0f
+        binding.containerSwitchRetractable.translationY =
+            binding.containerSwitchRetractable.height.toFloat()
+
+        binding.viewSwitchWarn.visibility = View.VISIBLE
+        binding.viewSwitchWarn.alpha = 1f
+        binding.viewSwitchWarn.translationY = 0f
+
+        changeSwitchColor(
+            binding.viewSmsSwitch,
+            Color.parseColor("#D7D7D7"),
+            ContextCompat.getColor(requireContext(), R.color.white),
+            0 // 直接无动画
+        )
+    }
+
+    /** 拨动 "短信转发" 时的展开动画 */
+    private fun expandAnimation() {
+        val retractableContainer = binding.containerSwitchRetractable
+        val switchWarnView = binding.viewSwitchWarn
+        val switchSmsView = binding.viewSmsSwitch
+
+        // 隐藏提示内容
+        switchWarnView.animate().alpha(0f)
+            .translationY(switchWarnView.height.toFloat())
+            .setDuration(500)
+            .setListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: Animator) {
+                    switchWarnView.visibility = View.INVISIBLE
                 }
-            } ?: Log.e("Connect", "解密或签名验证失败")
-        } ?: Log.e("Connect", "二维码数据为空")
+            })
+
+        // 展开页面内容
+        retractableContainer.visibility = View.VISIBLE
+        retractableContainer.alpha = 0f
+        retractableContainer.translationY = retractableContainer.height.toFloat()
+        retractableContainer.animate().alpha(1f).translationY(0f)
+            .setDuration(500).setListener(null)
+
+        changeSwitchColor(
+            switchSmsView,
+            ContextCompat.getColor(requireContext(), R.color.white),
+            Color.parseColor("#D7D7D7"),
+            300
+        )
+    }
+
+    /** 拨动 "短信转发" 时的收起动画 */
+    private fun collapseAnimation() {
+        val retractableContainer = binding.containerSwitchRetractable
+        val switchWarnView = binding.viewSwitchWarn
+        val switchTotalView = binding.viewSmsSwitch
+
+        // 收起页面内容
+        retractableContainer.animate().alpha(0f)
+            .translationY(retractableContainer.height.toFloat())
+            .setDuration(500)
+            .setListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: Animator) {
+                    retractableContainer.visibility = View.INVISIBLE
+                }
+            })
+
+        // 显示提示内容
+        switchWarnView.visibility = View.VISIBLE
+        switchWarnView.alpha = 0f
+        switchWarnView.translationY = -switchWarnView.height.toFloat()
+        switchWarnView.animate().alpha(1f).translationY(0f)
+            .setDuration(500).setListener(null)
+
+        changeSwitchColor(
+            switchTotalView,
+            Color.parseColor("#D7D7D7"),
+            ContextCompat.getColor(requireContext(), R.color.white),
+            600
+        )
+    }
+
+    /** 更改 "短信转发" 的颜色 */
+    private fun changeSwitchColor(view: View, colorFrom: Int, colorTo: Int, duration: Long) {
+        val colorAnimation = ValueAnimator.ofObject(ArgbEvaluator(), colorFrom, colorTo)
+        colorAnimation.duration = duration
+        colorAnimation.addUpdateListener { animator ->
+            (view as? CardView)?.setCardBackgroundColor(animator.animatedValue as Int)
+        }
+        colorAnimation.start()
     }
 
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null
+        webSocketHandler.setUIContext(null)
     }
 }
 

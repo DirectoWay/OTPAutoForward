@@ -13,21 +13,14 @@ public class WebSocketHandler
 {
     private HttpListener? _httpListener;
 
-    /**
-     * 控制 WebSocket 启动和停止时的并发访问
-     */
+    /** 控制 WebSocket 启动和停止时的并发访问 */
     private readonly SemaphoreSlim _startStopSemaphore = new(1, 1);
 
-    /**
-     * 用于存储从 App 端接收到的消息
-     */
+    /** 用于存储从 App 端接收到的消息 */
     private static readonly ConcurrentQueue<string> ReceivedMessages = new();
 
-    /**
-     * 订阅消息事件
-     */
+    /** 订阅消息事件 */
     public event Action<string>? OnMessageReceived;
-
 
     public async Task StartWebSocketServer()
     {
@@ -72,9 +65,7 @@ public class WebSocketHandler
         }
     }
 
-    /**
-     * 持续监听并接受来自客户端的 WebSocket 连接请求
-     */
+    /** 持续监听并接受来自客户端的 WebSocket 连接请求 */
     private async Task AcceptWebSocketClientsAsync()
     {
         while (_httpListener?.IsListening == true)
@@ -93,9 +84,7 @@ public class WebSocketHandler
         }
     }
 
-    /**
-     * 处理客户端的 WebSocket 连接请求
-     */
+    /** 处理客户端的 WebSocket 连接请求 */
     private async Task HandleWebSocketConnectionAsync(WebSocket webSocket)
     {
         var buffer = new byte[1024];
@@ -168,7 +157,7 @@ public class WebSocketHandler
         }
     }
 
-    // 用于模拟测试连接 WebSocket 服务端, 调用该方法即可
+    /** 用于模拟测试连接 WebSocket 服务端, 调用该方法即可 */
     public static async void ConnectToWebSocketServer(string serverUrl)
     {
         using var webSocket = new ClientWebSocket();

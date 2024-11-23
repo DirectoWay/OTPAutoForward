@@ -5,9 +5,7 @@ namespace WinCAPTCHA.ServiceHandler;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 
-/**
- * 用于测试和监控剪贴板
- */
+/** 用于测试和监控剪贴板 */
 public class ClipboardHandler
 {
     [DllImport("user32.dll")]

@@ -16,20 +16,13 @@ namespace WinCAPTCHA.ServiceHandler;
 ///  </summary>
 public static class QRCodeHandler
 {
-    /**
-     * 对称加密密钥
-     */
-    private const string Key = "autoCAPTCHA-encryptedKey"; 
-    
-    /**
-     * RSA加密对象，包含公钥和私钥
-     */
-    private static readonly RSA Rsa = RSA.Create();
-    
+    /** 对称加密密钥 */
+    private const string Key = "autoCAPTCHA-encryptedKey";
 
-    /**
-     * 生成加密后的二维码内容
-     */
+    /** RSA加密对象，包含公钥和私钥 */
+    private static readonly RSA Rsa = RSA.Create();
+
+    /** 生成加密后的二维码内容 */
     // ReSharper disable once InconsistentNaming
     public static string GenerateEncryptedQRCode(string webSocketServerUrl)
     {
@@ -55,9 +48,7 @@ public static class QRCodeHandler
         return qrContent;
     }
 
-    /**
-     * 加密配对信息
-     */
+    /** 加密配对信息 */
     private static string EncryptString(string plainText, string key)
     {
         using var aes = Aes.Create();
@@ -77,9 +68,7 @@ public static class QRCodeHandler
         return Convert.ToBase64String(ms.ToArray());
     }
 
-    /**
-     * 签名加密后的配对信息
-     */
+    /** 签名加密后的配对信息 */
     private static string SignData(string data, RSA rsa)
     {
         var dataBytes = Encoding.UTF8.GetBytes(data);
@@ -87,9 +76,7 @@ public static class QRCodeHandler
         return Convert.ToBase64String(signedBytes);
     }
 
-    /**
-     * 生成二维码图像
-     */
+    /** 生成二维码图像 */
     public static BitmapImage GenerateQrCodeImage(string qrData, int width, int height)
     {
         var qrCodeWriter = new BarcodeWriterPixelData

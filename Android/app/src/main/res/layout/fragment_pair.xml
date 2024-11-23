@@ -16,7 +16,7 @@
 
         <!-- 短信转发 -->
         <androidx.cardview.widget.CardView
-            android:id="@+id/view_total_switch"
+            android:id="@+id/view_sms_switch"
             android:layout_width="match_parent"
             android:layout_height="75dp"
             android:layout_marginTop="10dp"
@@ -31,7 +31,7 @@
                 android:layout_height="match_parent">
 
                 <com.google.android.material.switchmaterial.SwitchMaterial
-                    android:id="@+id/switch_total"
+                    android:id="@+id/switch_sms"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:checked="true"
@@ -52,8 +52,8 @@
                     android:textSize="13sp"
                     app:layout_constraintBottom_toBottomOf="parent"
                     app:layout_constraintEnd_toEndOf="parent"
-                    app:layout_constraintStart_toStartOf="@id/switch_total"
-                    app:layout_constraintTop_toTopOf="@id/switch_total" />
+                    app:layout_constraintStart_toStartOf="@id/switch_sms"
+                    app:layout_constraintTop_toTopOf="@id/switch_sms" />
             </androidx.constraintlayout.widget.ConstraintLayout>
         </androidx.cardview.widget.CardView>
 
@@ -66,7 +66,7 @@
             android:visibility="invisible"
             app:cardBackgroundColor="@android:color/white"
             app:cardCornerRadius="20dp"
-            app:layout_constraintTop_toBottomOf="@id/view_total_switch">
+            app:layout_constraintTop_toBottomOf="@id/view_sms_switch">
 
             <ImageView
                 android:id="@+id/icon_warn_switch"
@@ -104,7 +104,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="25dp"
             android:orientation="vertical"
-            app:layout_constraintTop_toBottomOf="@id/view_total_switch">
+            app:layout_constraintTop_toBottomOf="@id/view_sms_switch">
             <!-- 设备名称 -->
             <androidx.cardview.widget.CardView
                 android:id="@+id/view_device_info"

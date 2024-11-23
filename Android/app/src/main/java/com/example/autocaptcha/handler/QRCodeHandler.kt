@@ -1,8 +1,10 @@
 package com.example.autocaptcha.handler
 
+import android.os.Parcelable
 import android.util.Base64
 import android.util.Log
 import com.google.gson.Gson
+import kotlinx.parcelize.Parcelize
 import java.security.KeyFactory
 import java.security.Signature
 import java.security.spec.X509EncodedKeySpec
@@ -10,20 +12,22 @@ import javax.crypto.Cipher
 import javax.crypto.spec.IvParameterSpec
 import javax.crypto.spec.SecretKeySpec
 
-// 用于封装和存储连接所需的配置信息
+@Parcelize
+/** 与 Win 端连接所需的配置信息*/
 data class PairingInfo(
     val serverUrl: String,
     val windowsPublicKey: String,
     val deviceId: String,
     val deviceType: String,
     val deviceName: String,
-)
+) : Parcelable
 
+/** 处理 Win 端提供的二维码 */
 class QRCodeHandler {
     private val aesKey = "autoCAPTCHA-encryptedKey" // 解密密钥
 
-    // 解密和验证
-    fun decryptAndVerify(qrData: String?): PairingInfo? {
+    /** 解密和验证二维码信息 */
+    fun analyzeQRCode(qrData: String?): PairingInfo? {
         if (qrData.isNullOrBlank()) return null
 
         // 分割加密内容和签名
@@ -33,13 +37,9 @@ class QRCodeHandler {
         val encryptedText = parts[0]
         val signature = parts[1]
 
-        // 解密内容
         val decryptedText = decrypt(encryptedText) ?: return null
-
-        // 解析配对信息
         val pairingInfo = Gson().fromJson(decryptedText, PairingInfo::class.java)
 
-        // 验证签名
         val isValidSignature =
             verifySignature(encryptedText, signature, pairingInfo.windowsPublicKey)
         if (!isValidSignature) {
@@ -51,7 +51,7 @@ class QRCodeHandler {
         return pairingInfo
     }
 
-    // 解密
+    /** 解密二维码中的配对信息 */
     private fun decrypt(encrypted: String): String? {
         return try {
             val secretKey = SecretKeySpec(aesKey.toByteArray(), "AES")
@@ -67,7 +67,7 @@ class QRCodeHandler {
         }
     }
 
-    // 验证签名
+    /** 验证二维码中的签名 */
     private fun verifySignature(data: String, signature: String, publicKey: String): Boolean {
         return try {
             // 解析公钥

@@ -9,13 +9,18 @@ import android.graphics.LinearGradient
 import android.graphics.Paint
 import android.graphics.Rect
 import android.graphics.Shader
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.util.AttributeSet
 import android.util.Log
 import android.view.View
+import android.view.ViewTreeObserver
+import android.view.WindowInsets
+import android.view.WindowInsetsController
 import androidx.activity.OnBackPressedCallback
+import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.DecodeHintType
@@ -25,6 +30,7 @@ import com.journeyapps.barcodescanner.BarcodeResult
 import com.journeyapps.barcodescanner.DecoratedBarcodeView
 import com.journeyapps.barcodescanner.DefaultDecoderFactory
 import com.journeyapps.barcodescanner.ViewfinderView
+
 
 class CaptureQRCodeActivity : AppCompatActivity() {
     private lateinit var barcodeView: DecoratedBarcodeView
@@ -183,6 +189,12 @@ class CustomViewfinderView(context: Context, attrs: AttributeSet) : View(context
             paint
         )
     }
+
+    override fun onDetachedFromWindow() {
+        super.onDetachedFromWindow()
+    }
 }
+
+
 
 

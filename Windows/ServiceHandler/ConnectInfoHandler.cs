@@ -10,9 +10,7 @@ namespace WinCAPTCHA.ServiceHandler;
 
 public static class ConnectInfoHandler
 {
-    /**
-     * 获取本机 IP 地址
-     */
+    /** 获取本机 IP 地址 */
     public static string? GetLocalIpAddress()
     {
         try
@@ -29,18 +27,14 @@ public static class ConnectInfoHandler
         }
     }
 
-    /**
-     * 通过网络适配器品牌来获取 IP 地址
-     */
+    /** 通过网络适配器品牌来获取 IP 地址 */
     public static string? GetLocalIpAddressByBrand()
     {
-        // 获取真实 IP, 排除掉类似于 zerotier和 virtualbox 这样的虚拟 IP
         try
         {
-            // 排除的网络描述
+            // 获取真实 IP, 排除掉类似于 zerotier和 virtualbox 这样的虚拟 IP
             var excludeList = new List<string> { "virtual", "zerotier" };
-            //  正向匹配的网络描述
-            var includeList = new List<string> { "intel", "realtek", "mediatek", "qualcomm" };
+            var includeList = new List<string> { "intel", "realtek", "mediatek", "qualcomm" }; //  正向匹配的网络描述
 
             var localIpAddress = NetworkInterface.GetAllNetworkInterfaces()
                 .Where(networkInterface => networkInterface.OperationalStatus == OperationalStatus.Up &&
@@ -64,9 +58,7 @@ public static class ConnectInfoHandler
         }
     }
 
-    /**
-     * 获取本设备的设备类型, 如笔记本电脑 台式电脑等
-     */
+    /** 获取本设备的设备类型, 如笔记本电脑 台式电脑等 */
     public static string GetDeviceType()
     {
         var deviceType = "Unknown";
@@ -99,9 +91,7 @@ public static class ConnectInfoHandler
         return deviceType;
     }
 
-    /**
-     * 获取本设备的 ID
-     */
+    /** 获取本设备的 ID */
     public static string? GetDeviceUniqueId()
     {
         var uniqueId = "Unknown";

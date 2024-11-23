@@ -1,15 +1,13 @@
 package com.example.autocaptcha.handler
 
-import android.content.Context
 import android.content.Intent
 import android.view.LayoutInflater
 import android.widget.LinearLayout
 import com.example.autocaptcha.PairedDeviceSettingsActivity
 import com.example.autocaptcha.R
-import com.example.autocaptcha.databinding.FragmentPairBinding
 import com.example.autocaptcha.databinding.FragmentPairDeviceinfoBinding
 
-/* DeviceInfo 类用于保存已经配对的设备信息 */
+/** DeviceInfo 类用于保存已经配对的设备信息 */
 data class DeviceInfo(
     val typeIcon: Int,
     val deviceName: String,
@@ -17,12 +15,11 @@ data class DeviceInfo(
     val deviceId: String
 )
 
-/* 动态的给配对页面的 RecyclerView 中生成元素, 用以动态生成已经配对的设备信息 */
+/** 动态的给配对页面的 RecyclerView 中生成元素, 用以动态生成已经配对的设备信息 */
 class DeviceHandler(private val container: LinearLayout) {
 
-    fun getDeviceInfo(context: Context): List<DeviceInfo> {
-        val webSocketHandler = WebSocketHandler.getInstance()
-        val allDevicesInfo = webSocketHandler.getAllDevicesInfo(context)
+    fun getDeviceInfo(): List<DeviceInfo> {
+        val allDevicesInfo = WebSocketHandler.getInstance().getAllDevicesInfo()
 
         return allDevicesInfo.map { pairingInfo ->
             DeviceInfo(
@@ -34,7 +31,7 @@ class DeviceHandler(private val container: LinearLayout) {
         }
     }
 
-    // 按照设备类型设置图标
+    /** 按照设备类型设置图标 */
     private fun getDeviceIconForType(deviceType: String): Int {
         return when (deviceType.lowercase()) {
             "desktop" -> R.drawable.sharp_desktop_windows_24
@@ -44,7 +41,7 @@ class DeviceHandler(private val container: LinearLayout) {
         }
     }
 
-    // 动态绑定设备信息与图标
+    /** 动态绑定设备信息与图标 */
     fun bindDeviceInfo(devices: List<DeviceInfo>) {
         container.removeAllViews() // 清空之前的视图
         for (device in devices) {

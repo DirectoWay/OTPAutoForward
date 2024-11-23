@@ -25,6 +25,7 @@ import android.Manifest
 import android.os.Build
 import androidx.annotation.RequiresApi
 import androidx.lifecycle.ViewModelProvider
+import com.example.autocaptcha.service.SmsForegroundService
 import com.example.autocaptcha.ui.pair.DevicePairViewModel
 
 class MainActivity : AppCompatActivity() {
@@ -32,7 +33,7 @@ class MainActivity : AppCompatActivity() {
     companion object {
         private var instance: MainActivity? = null
         fun getInstance(): MainActivity {
-            return instance ?: throw IllegalStateException("MainActivity is not initialized yet!")
+            return instance ?: throw IllegalStateException("MainActivity is not initialized")
         }
     }
 
@@ -74,15 +75,12 @@ class MainActivity : AppCompatActivity() {
         // 检查并请求短信权限
         checkAndRequestSmsPermission()
 
-        // 初始化 settings 配置
-        val sharedPreferences = getSharedPreferences("AppPreferences", Context.MODE_PRIVATE)
-        val editor = sharedPreferences.edit()
-
-        // 检查是否有存储的值，如果没有，设置默认值
-        if (!sharedPreferences.contains("forwardOnlyScreenLocked")) {
-            editor.putBoolean("forwardOnlyScreenLocked", true)
-            editor.apply()
+        // 启动短信服务
+        if (devicePairViewModel.getSmsEnabledStatus()) {
+            val intent = Intent(this, SmsForegroundService::class.java)
+            ContextCompat.startForegroundService(this, intent)
         }
+
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {

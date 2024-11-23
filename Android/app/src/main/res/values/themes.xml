@@ -2,13 +2,13 @@
     <!-- Base application theme. -->
     <style name="Theme.AutoCAPTCHA" parent="Theme.MaterialComponents.Light.NoActionBar.Bridge">
         <!-- Primary brand color. -->
-        <!-- <item name="android:windowTranslucentStatus">true</item>
-        <item name="android:windowDrawsSystemBarBackgrounds">false</item>-->
+        <!--<item name="android:windowTranslucentStatus">true</item>--> <!-- 状态栏透明状态 -->
+        <item name="android:windowDrawsSystemBarBackgrounds">true</item> <!-- 允许绘制状态栏颜色 -->
         <item name="android:statusBarColor">#F5F5F5</item> <!-- 状态栏颜色 -->
         <item name="android:windowLightStatusBar">true</item> <!-- 状态栏图标和时间颜色 -->
-        <item name="colorPrimary">@color/white</item>
-        <item name="colorPrimaryVariant">@color/white</item>
-        <item name="colorOnPrimary">@color/black</item>
+        <item name="colorPrimary">@color/white</item> <!-- 侧边栏被触发时的底色 -->
+        <item name="colorPrimaryVariant">@color/purple_700</item>
+        <item name="colorOnPrimary">@color/purple_700</item>
         <item name="navigationViewStyle">@style/NavigationViewStyle</item> <!-- 侧边菜单栏样式 -->
         <item name="toolbarStyle">@style/ToolbarStyle</item>
         <!-- 打开app后状态栏的颜色 -->

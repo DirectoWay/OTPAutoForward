@@ -4,9 +4,7 @@ using System.Windows.Forms;
 
 namespace WinCAPTCHA.ServiceHandler;
 
-/**
- * 用于管理软件的托盘图标与托盘菜单
- */
+/** 用于管理软件的托盘图标与托盘菜单 */
 public class NotifyIconHandler
 {
     private readonly NotifyIcon _notifyIcon;
@@ -30,9 +28,7 @@ public class NotifyIconHandler
         _notifyIcon.DoubleClick += (_, _) => _onRestoreWindow();
     }
 
-    /**
-     * 初始化托盘菜单栏
-     */
+    /** 初始化托盘菜单栏 */
     private void InitializeContextMenu()
     {
         var contextMenu = new ContextMenuStrip();

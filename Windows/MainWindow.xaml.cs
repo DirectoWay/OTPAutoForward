@@ -16,15 +16,10 @@ public partial class MainWindow
     private readonly NotifyIconHandler _notifyIconHandler;
     private readonly WebSocketHandler _webSocketHandler;
 
-    /**
-     * 程序的主窗口是否存在
-     */
+    /** 程序的主窗口是否存在 */
     private bool _isExiting;
-
-
-    /**
-     * 短信订阅标志
-     */
+    
+    /** 短信订阅标志 */
     private int _isEventSubscribed;
 
     public MainWindow()
@@ -69,9 +64,7 @@ public partial class MainWindow
         }
     }
 
-    /**
-     * 阻止真正的程序窗口关闭并最小化至托盘
-     */
+    /** 阻止真正的程序窗口关闭并最小化至托盘 */
     protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
     {
         if (!_isExiting)
@@ -85,9 +78,7 @@ public partial class MainWindow
         }
     }
 
-    /**
-    * 弹出含有短信内容的 Toast 弹窗
-    */
+    /** 弹出含有短信内容的 Toast 弹窗 */
     private static void ShowToastNotification(string message)
     {
         Application.Current.Dispatcher.Invoke(() =>
@@ -96,15 +87,13 @@ public partial class MainWindow
             new ToastContentBuilder()
                 .AddArgument("action", "copy")
                 .AddArgument("toastId", toastId)
-                .AddArgument("message", message) // 添加消息内容作为参数
+                .AddArgument("message", message)
                 .AddText(message)
                 .Show();
         });
     }
 
-    /**
-     *  Toast 弹窗被点击时的事件
-     */
+    /** Toast 弹窗被点击时的事件 */
     private static void OnToastActivated(ToastNotificationActivatedEventArgsCompat toastArgs)
     {
         Application.Current.Dispatcher.Invoke(() =>
@@ -117,9 +106,7 @@ public partial class MainWindow
         });
     }
 
-    /**
-     * 解析短信并判断其是否为验证码短信 非验证码短信复制整条消息 验证码短信则只复制验证码本身
-     */
+    /** 解析短信并判断其是否为验证码短信 非验证码短信复制整条消息 验证码短信则只复制验证码本身 */
     private static bool VerifyMessage(string message, out string verificationCode)
     {
         verificationCode = string.Empty;
@@ -133,9 +120,7 @@ public partial class MainWindow
         return true;
     }
 
-    /**
-     * 将短信内容复制进剪贴板
-     */
+    /** 将短信内容复制进剪贴板 */
     private static void CopyToClipboard(string text)
     {
         Application.Current.Dispatcher.Invoke(() =>
@@ -153,9 +138,7 @@ public partial class MainWindow
         });
     }
 
-    /**
-     * 配对按钮
-     */
+    /** 配对按钮 */
     private void Button_Pair(object sender, RoutedEventArgs e)
     {
         // 先判断 Win 端和 App 端是否已经处于连接状态
@@ -169,9 +152,7 @@ public partial class MainWindow
         }
     }
 
-    /**
-     * 打开 WebSocket 连接
-     */
+    /** 打开 WebSocket 连接 */
     private void StartWebSocketConnect()
     {
         var localIp = ConnectInfoHandler.GetLocalIpAddress();
@@ -184,9 +165,7 @@ public partial class MainWindow
         QrCodeImage.Visibility = Visibility.Visible;
     }
 
-    /**
-     * 检查配对状态
-     */
+    /** 检查配对状态 */
     private static bool PairedStatus()
     {
         return false;

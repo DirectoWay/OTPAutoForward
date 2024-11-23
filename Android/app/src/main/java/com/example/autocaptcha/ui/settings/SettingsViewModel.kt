@@ -23,6 +23,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         loadSettings()
     }
 
+    /** 加载设置页面的用户设置 */
     private fun loadSettings() {
         val map = mutableMapOf(
             "forwardOnlyScreenLocked" to sharedPreferences.getBoolean(
