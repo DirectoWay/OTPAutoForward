@@ -16,11 +16,9 @@ import android.os.Looper
 import android.util.AttributeSet
 import android.util.Log
 import android.view.View
-import android.view.ViewTreeObserver
 import android.view.WindowInsets
 import android.view.WindowInsetsController
 import androidx.activity.OnBackPressedCallback
-import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.DecodeHintType
@@ -36,9 +34,41 @@ class CaptureQRCodeActivity : AppCompatActivity() {
     private lateinit var barcodeView: DecoratedBarcodeView
     private lateinit var customViewfinderView: CustomViewfinderView
 
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_capture_qr_code)
+
+        // 隐藏状态栏
+        /* if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+             window.setDecorFitsSystemWindows(false)
+             val controller = window.insetsController
+             if (controller != null) {
+                 controller.hide(WindowInsets.Type.statusBars())
+                 controller.systemBarsBehavior =
+                     WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+             }
+         } else {
+             window.setFlags(
+                 WindowManager.LayoutParams.FLAG_FULLSCREEN,
+                 WindowManager.LayoutParams.FLAG_FULLSCREEN
+             )
+         }*/
+
+        // 隐藏状态栏
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            window.setDecorFitsSystemWindows(false)
+            window.insetsController?.let { controller ->
+                controller.hide(
+                    WindowInsets.Type.statusBars()
+                )
+                controller.systemBarsBehavior =
+                    WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            }
+        } else {
+            window.decorView.systemUiVisibility =
+                (View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or View.SYSTEM_UI_FLAG_LAYOUT_STABLE)
+        }
 
         barcodeView = findViewById(R.id.zxing_barcode_scanner)
         customViewfinderView = findViewById(R.id.custom_viewfinder)
@@ -188,10 +218,6 @@ class CustomViewfinderView(context: Context, attrs: AttributeSet) : View(context
             scannerLineY.toFloat() + scannerLineThickness / 2,
             paint
         )
-    }
-
-    override fun onDetachedFromWindow() {
-        super.onDetachedFromWindow()
     }
 }
 

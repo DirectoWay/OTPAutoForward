@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Windows;
@@ -18,7 +20,7 @@ public partial class MainWindow
 
     /** 程序的主窗口是否存在 */
     private bool _isExiting;
-    
+
     /** 短信订阅标志 */
     private int _isEventSubscribed;
 
@@ -110,13 +112,34 @@ public partial class MainWindow
     private static bool VerifyMessage(string message, out string verificationCode)
     {
         verificationCode = string.Empty;
-        if (!message.Contains("验证码") && !message.Contains("验证")) return false;
 
-        // 提取验证码 (设定验证码为4位或6位数字，断言前后没有其他数字)
-        var match = Regex.Match(message, @"(?<!\d)[\d]{4,6}(?!\d)");
+        // 排除掉包含 "验证" 字眼但不携带四位或六位数字的短信
+        if (!message.Contains("验证码") && !message.Contains("验证") && !Regex.IsMatch(message, @"\b\d{4,6}\b"))
+            return false;
 
-        if (!match.Success) return false;
-        verificationCode = match.Value;
+        // 正则匹配规则表(规则先后顺序会影响匹配结果!!)
+        var rules = new List<Regex>
+        {
+            // 带前缀的字母+符号+数字形式的验证码
+            new(
+                @"(?:验证码\s*[:：]?\s*|是您的验证码|是您.*?验证码|验证码是|验证码为|是验证码|[^\w]是|[^\w])\s*([A-Za-z][-_.]?[A-Za-z0-9]*[-_.]?[\d]{4,10})"),
+
+            // 字母数字混合验证码
+            new(@"\b([A-Za-z0-9-]{5,10})\b.*?(验证码|临时密码|动态码)"),
+
+            // 核心关键字匹配
+            new(@"(?:验证码\s*[:：]?\s*|是您的验证码|是您.*?验证码|验证码是|验证码为|是验证码|[^\w]是|[^\w])\s*([\d]{4,6})(?![\d-])"),
+
+            // 4-6位数字验证码(简易场景)
+            new(@"\b([\d]{4,6})\b.*?(验证码|临时密码|动态码)")
+        };
+
+        verificationCode = string.Empty;
+
+        // 遍历规则表并匹配验证码
+        var match = rules.Select(rule => rule.Match(message)).FirstOrDefault(m => m.Success);
+        if (match == null) return false;
+        verificationCode = match.Groups[1].Value.Trim();
         return true;
     }
 
@@ -157,10 +180,10 @@ public partial class MainWindow
     {
         var localIp = ConnectInfoHandler.GetLocalIpAddress();
         var webSocketServerUrl = $"ws://{localIp}:9000";
-        
+
         var qrData = QRCodeHandler.GenerateEncryptedQRCode(webSocketServerUrl);
         var qrCodeImage = QRCodeHandler.GenerateQrCodeImage(qrData, 300, 300);
-        
+
         QrCodeImage.Source = qrCodeImage;
         QrCodeImage.Visibility = Visibility.Visible;
     }
