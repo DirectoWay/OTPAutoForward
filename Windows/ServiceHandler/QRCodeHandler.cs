@@ -19,7 +19,7 @@ public static class QRCodeHandler
     /** Win 端的固定公钥 */
     private static readonly string? WindowsPublicKey;
 
-    /** RSA加密对象, 包含公钥和私钥 二维码暂时只用得到公钥 */
+    /** RSA加密对象, 包含公钥和私钥 */
     private static readonly RSA Rsa = RSA.Create();
 
     static QRCodeHandler()
@@ -31,6 +31,7 @@ public static class QRCodeHandler
             WindowsPublicKey = rsaKeys.PublicKey;
             windowsPrivateKey = rsaKeys.PrivateKey;
             Rsa.ImportRSAPrivateKey(windowsPrivateKey, out _); // 往 RSA 加密对象中导入私钥
+            Console.WriteLine("密钥已初始化");
         }
         else
         {
@@ -52,7 +53,7 @@ public static class QRCodeHandler
             deviceName = Environment.MachineName,
             deviceId = ConnectInfoHandler.GetDeviceID(),
             deviceType = ConnectInfoHandler.GetDeviceType(),
-            WindowsPublicKey, // Win 端的公钥
+            windowsPublicKey = WindowsPublicKey // Win 端的公钥
         };
         var pairingInfoJson = JsonSerializer.Serialize(pairingInfo);
 

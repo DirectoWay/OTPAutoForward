@@ -41,7 +41,7 @@ public static class KeyHandler
     {
         // 加密公钥和私钥
         var encryptedPublicKey = EncryptString(publicKey);
-        var encryptedPrivateKey = EncryptString(Convert.ToBase64String(privateKey));
+        var encryptedPrivateKey = EncryptBytes(privateKey);
 
         using var connection = new SqliteConnection($"Data Source={DatabasePath}");
         connection.Open();
@@ -53,41 +53,6 @@ public static class KeyHandler
         insertCommand.ExecuteNonQuery();
     }
 
-    /** AES 加密 */
-    public static string EncryptString(string plainText)
-    {
-        using var aes = Aes.Create();
-        aes.Mode = CipherMode.CBC;
-        aes.Padding = PaddingMode.PKCS7;
-        aes.Key = Encoding.UTF8.GetBytes(Key);
-        aes.IV = new byte[16]; // 初始化向量
-        var encryptor = aes.CreateEncryptor(aes.Key, aes.IV);
-
-        using var ms = new MemoryStream();
-        using var cs = new CryptoStream(ms, encryptor, CryptoStreamMode.Write);
-        using (var sw = new StreamWriter(cs))
-        {
-            sw.Write(plainText);
-        }
-
-        return Convert.ToBase64String(ms.ToArray());
-    }
-
-    /** AES 解密 */
-    public static string DecryptString(string cipherText)
-    {
-        using var aes = Aes.Create();
-        aes.Mode = CipherMode.CBC;
-        aes.Padding = PaddingMode.PKCS7;
-        aes.Key = Encoding.UTF8.GetBytes(Key);
-        aes.IV = new byte[16]; // 初始化向量
-        var decryptor = aes.CreateDecryptor(aes.Key, aes.IV);
-        using var ms = new MemoryStream(Convert.FromBase64String(cipherText));
-        using var cs = new CryptoStream(ms, decryptor, CryptoStreamMode.Read);
-        using var sr = new StreamReader(cs);
-        return sr.ReadToEnd();
-    }
-
     /** 从数据库加载公钥和私钥 */
     public static (string? PublicKey, byte[]? PrivateKey) LoadRSAKeys()
     {
@@ -97,13 +62,12 @@ public static class KeyHandler
         using var reader = selectCommand.ExecuteReader();
         if (!reader.Read()) return (null, null); // 密钥对不存在
 
-        //  获取加密的公钥和私钥
         var encryptedPublicKey = reader.GetString(0);
-        var encryptedPrivateKey = (byte[])reader["PrivateKey"];
+        var encryptedPrivateKey = reader.GetFieldValue<byte[]>(1);
 
         // 解密公钥和私钥
         var publicKey = DecryptString(encryptedPublicKey);
-        var privateKey = Convert.FromBase64String(DecryptString(Convert.ToBase64String(encryptedPrivateKey)));
+        var privateKey = DecryptBytes(encryptedPrivateKey);
         return (publicKey, privateKey);
     }
 
@@ -129,5 +93,112 @@ public static class KeyHandler
             connection
         );
         deleteCommand.ExecuteNonQuery();
+    }
+
+    /// <summary>
+    /// String 类型的 AES 加密
+    /// </summary>
+    /// <param name="plainText">可用于加密公钥或二维码内容</param>
+    public static string EncryptString(string plainText)
+    {
+        using var aes = Aes.Create();
+        aes.Mode = CipherMode.CBC;
+        aes.Padding = PaddingMode.PKCS7;
+        aes.Key = Encoding.UTF8.GetBytes(Key);
+        aes.IV = new byte[16]; // 初始化向量
+        var encryptor = aes.CreateEncryptor(aes.Key, aes.IV);
+
+        using var ms = new MemoryStream();
+        using var cs = new CryptoStream(ms, encryptor, CryptoStreamMode.Write);
+        using (var sw = new StreamWriter(cs))
+        {
+            sw.Write(plainText);
+        }
+
+        return Convert.ToBase64String(ms.ToArray());
+    }
+
+    /// <summary>
+    /// String 类型的 AES 解密 
+    /// </summary>
+    /// <param name="cipherText">可用于解密公钥或二维码内容</param>
+    public static string DecryptString(string cipherText)
+    {
+        try
+        {
+            using var aes = Aes.Create();
+            aes.Mode = CipherMode.CBC;
+            aes.Padding = PaddingMode.PKCS7;
+            aes.Key = Encoding.UTF8.GetBytes(Key);
+            aes.IV = new byte[16]; // 初始化向量
+
+            // Base64 解码
+            var cipherBytes = Convert.FromBase64String(cipherText);
+
+            // 解密
+            using var ms = new MemoryStream(cipherBytes);
+            using var cs = new CryptoStream(ms, aes.CreateDecryptor(aes.Key, aes.IV), CryptoStreamMode.Read);
+
+            // 以字节流方式读取解密后的数据
+            using var resultStream = new MemoryStream();
+            cs.CopyTo(resultStream);
+
+            return Encoding.UTF8.GetString(resultStream.ToArray());
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"解密失败: {ex.Message}");
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Bytes 类型的 AES 加密
+    /// </summary>
+    /// <param name="plainBytes">可用于加密私钥</param>
+    public static byte[] EncryptBytes(byte[] plainBytes)
+    {
+        using var aes = Aes.Create();
+        aes.Mode = CipherMode.CBC;
+        aes.Padding = PaddingMode.PKCS7;
+        aes.Key = Encoding.UTF8.GetBytes(Key);
+        aes.IV = new byte[16]; // 初始化向量
+
+        using var ms = new MemoryStream();
+        using var cs = new CryptoStream(ms, aes.CreateEncryptor(aes.Key, aes.IV), CryptoStreamMode.Write);
+        cs.Write(plainBytes, 0, plainBytes.Length);
+        cs.FlushFinalBlock();
+
+        return ms.ToArray();
+    }
+
+    /// <summary>
+    /// Bytes 类型的 AES 解密
+    /// </summary>
+    /// <param name="cipherBytes">可用于解密私钥</param>
+    private static byte[] DecryptBytes(byte[] cipherBytes)
+    {
+        try
+        {
+            using var aes = Aes.Create();
+            aes.Mode = CipherMode.CBC;
+            aes.Padding = PaddingMode.PKCS7;
+            aes.Key = Encoding.UTF8.GetBytes(Key);
+            aes.IV = new byte[16]; // 初始化向量
+
+            using var ms = new MemoryStream(cipherBytes);
+            using var cs = new CryptoStream(ms, aes.CreateDecryptor(aes.Key, aes.IV), CryptoStreamMode.Read);
+
+            using var resultStream = new MemoryStream();
+            cs.CopyTo(resultStream);
+
+            return resultStream.ToArray();
+        }
+
+        catch (Exception ex)
+        {
+            Console.WriteLine($"解密失败: {ex.Message}");
+            throw;
+        }
     }
 }
