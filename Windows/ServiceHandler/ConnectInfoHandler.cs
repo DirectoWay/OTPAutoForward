@@ -11,24 +11,24 @@ namespace WinCAPTCHA.ServiceHandler;
 public static class ConnectInfoHandler
 {
     /** 获取本机 IP 地址 */
-    public static string? GetLocalIpAddress()
+    public static IPAddress GetLocalIP()
     {
         try
         {
             using var socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, 0);
             socket.Connect("www.baidu.com", 80); // Ping一下百度的地址以获取IP
             if (socket.LocalEndPoint is not IPEndPoint endPoint) throw new Exception("无法获取本地IP地址的端点信息。");
-            return endPoint.Address.ToString();
+            return endPoint.Address;
         }
         catch (Exception ex)
         {
             Console.WriteLine($"IPv4 地址匹配错误: {ex.Message}");
-            return null;
+            return IPAddress.Any; // 使用默认 IP 地址（监听所有网络接口）
         }
     }
 
     /** 通过网络适配器品牌来获取 IP 地址 */
-    public static string? GetLocalIpAddressByBrand()
+    public static IPAddress GetLocalIPByBrand()
     {
         try
         {
@@ -49,12 +49,12 @@ public static class ConnectInfoHandler
                 ?.Address // 排除回环地址
                 .ToString();
 
-            return localIpAddress ?? "无法找到系统中匹配的 IPv4 地址";
+            return localIpAddress != null ? IPAddress.Parse(localIpAddress) : IPAddress.Any;
         }
         catch (Exception ex)
         {
             Console.WriteLine($"IPv4 地址匹配错误: {ex.Message}");
-            return null;
+            return IPAddress.Any; // 使用默认 IP 地址（监听所有网络接口）
         }
     }
 
@@ -92,7 +92,7 @@ public static class ConnectInfoHandler
     }
 
     /** 获取本设备的 ID */
-    public static string? GetDeviceUniqueId()
+    public static string? GetDeviceID()
     {
         var uniqueId = "Unknown";
         try

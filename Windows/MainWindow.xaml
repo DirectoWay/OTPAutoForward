@@ -11,7 +11,7 @@
     <Grid>
         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
             <Image Name="QrCodeImage" Visibility="Collapsed" Width="600" Height="400" />
-            <Button Content="点击此处进行配对" Click="Button_Pair" Width="150" Height="50">
+            <Button Content="点击此处进行配对" Click="GetQRCode" Width="150" Height="50">
                 <Button.Style>
                     <Style TargetType="Button">
                         <Setter Property="Background" Value="LightSkyBlue" />

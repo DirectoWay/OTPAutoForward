@@ -1,4 +1,4 @@
-package com.example.autocaptcha.ui.pair
+package com.autocaptcha.viewmodel
 
 import android.app.Application
 import android.content.Context

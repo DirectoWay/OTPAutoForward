@@ -15,6 +15,7 @@ lifecycleViewmodelKtx = "2.6.1"
 navigationFragmentKtx = "2.6.0"
 navigationUiKtx = "2.6.0"
 squareupOkhttp = "4.9.3"
+workRuntimeKtxVersion = "2.8.1"
 zxingAndroidEmbeddedVersion = "4.3.0"
 junitJunit = "4.12"
 
@@ -33,6 +34,7 @@ androidx-lifecycle-viewmodel-ktx = { group = "androidx.lifecycle", name = "lifec
 androidx-navigation-fragment-ktx = { group = "androidx.navigation", name = "navigation-fragment-ktx", version.ref = "navigationFragmentKtx" }
 androidx-navigation-ui-ktx = { group = "androidx.navigation", name = "navigation-ui-ktx", version.ref = "navigationUiKtx" }
 squareup-okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "squareupOkhttp" }
+work-runtime-ktx = { module = "androidx.work:work-runtime-ktx", version.ref = "workRuntimeKtxVersion" }
 zxing-android-embedded-v430 = { module = "com.journeyapps:zxing-android-embedded", version.ref = "zxingAndroidEmbeddedVersion" }
 junit-junit = { group = "junit", name = "junit", version.ref = "junitJunit" }
 

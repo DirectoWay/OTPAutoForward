@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Windows;
@@ -17,6 +18,12 @@ public partial class MainWindow
 {
     private readonly NotifyIconHandler _notifyIconHandler;
     private readonly WebSocketHandler _webSocketHandler;
+
+    /** WebSocket 服务 IP 地址*/
+    private readonly IPAddress _ipAddress = ConnectInfoHandler.GetLocalIP();
+
+    /** WebSocket 服务端口 */
+    private const string Port = "9224";
 
     /** 程序的主窗口是否存在 */
     private bool _isExiting;
@@ -40,7 +47,7 @@ public partial class MainWindow
             _webSocketHandler.OnMessageReceived += ShowToastNotification;
         }
 
-        await _webSocketHandler.StartWebSocketServer();
+        await _webSocketHandler.StartWebSocketServer(_ipAddress, Port);
     }
 
     private void RestoreWindow()
@@ -161,36 +168,13 @@ public partial class MainWindow
         });
     }
 
-    /** 配对按钮 */
-    private void Button_Pair(object sender, RoutedEventArgs e)
+    /** 配对按钮: 获取配对用的二维码 */
+    private void GetQRCode(object sender, RoutedEventArgs e)
     {
-        // 先判断 Win 端和 App 端是否已经处于连接状态
-        if (PairedStatus())
-        {
-            MessageBox.Show("已配对！");
-        }
-        else
-        {
-            StartWebSocketConnect();
-        }
-    }
-
-    /** 打开 WebSocket 连接 */
-    private void StartWebSocketConnect()
-    {
-        var localIp = ConnectInfoHandler.GetLocalIpAddress();
-        var webSocketServerUrl = $"ws://{localIp}:9000";
-
-        var qrData = QRCodeHandler.GenerateEncryptedQRCode(webSocketServerUrl);
+        var qrData = QRCodeHandler.GenerateEncryptedQRCode(_ipAddress, Port);
         var qrCodeImage = QRCodeHandler.GenerateQrCodeImage(qrData, 300, 300);
 
         QrCodeImage.Source = qrCodeImage;
         QrCodeImage.Visibility = Visibility.Visible;
-    }
-
-    /** 检查配对状态 */
-    private static bool PairedStatus()
-    {
-        return false;
     }
 }

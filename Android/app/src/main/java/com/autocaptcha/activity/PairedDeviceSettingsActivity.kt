@@ -1,4 +1,4 @@
-package com.example.autocaptcha
+package com.autocaptcha.activity
 
 import android.content.Context
 import android.os.Bundle
@@ -6,8 +6,9 @@ import android.os.Handler
 import android.os.Looper
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.ViewModelProvider
-import com.example.autocaptcha.databinding.ActivityPairDeviceSettingsBinding
-import com.example.autocaptcha.ui.pair.DevicePairViewModel
+import com.autocaptcha.viewmodel.DevicePairViewModel
+import com.autocaptcha.R
+import com.autocaptcha.databinding.ActivityPairDeviceSettingsBinding
 
 class PairedDeviceSettingsActivity : AppCompatActivity() {
     private lateinit var devicePairViewModel: DevicePairViewModel

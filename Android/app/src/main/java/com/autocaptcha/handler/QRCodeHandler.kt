@@ -1,33 +1,22 @@
-package com.example.autocaptcha.handler
+package com.autocaptcha.handler
 
-import android.os.Parcelable
 import android.util.Base64
 import android.util.Log
 import com.google.gson.Gson
-import kotlinx.parcelize.Parcelize
 import java.security.KeyFactory
 import java.security.Signature
 import java.security.spec.X509EncodedKeySpec
 import javax.crypto.Cipher
 import javax.crypto.spec.IvParameterSpec
 import javax.crypto.spec.SecretKeySpec
-
-@Parcelize
-/** 与 Win 端连接所需的配置信息*/
-data class PairingInfo(
-    val serverUrl: String,
-    val windowsPublicKey: String,
-    val deviceId: String,
-    val deviceType: String,
-    val deviceName: String,
-) : Parcelable
+import com.autocaptcha.dataclass.PairedDeviceInfo
 
 /** 处理 Win 端提供的二维码 */
 class QRCodeHandler {
     private val aesKey = "autoCAPTCHA-encryptedKey" // 解密密钥
 
     /** 解密和验证二维码信息 */
-    fun analyzeQRCode(qrData: String?): PairingInfo? {
+    fun analyzeQRCode(qrData: String?): PairedDeviceInfo? {
         if (qrData.isNullOrBlank()) return null
 
         // 分割加密内容和签名
@@ -38,17 +27,17 @@ class QRCodeHandler {
         val signature = parts[1]
 
         val decryptedText = decrypt(encryptedText) ?: return null
-        val pairingInfo = Gson().fromJson(decryptedText, PairingInfo::class.java)
+        val pairedDeviceInfo = Gson().fromJson(decryptedText, PairedDeviceInfo::class.java)
 
         val isValidSignature =
-            verifySignature(encryptedText, signature, pairingInfo.windowsPublicKey)
+            verifySignature(encryptedText, signature, pairedDeviceInfo.windowsPublicKey)
         if (!isValidSignature) {
             Log.e("QRCodeHandler", "签名验证失败")
             return null
         }
 
         // 解密内容
-        return pairingInfo
+        return pairedDeviceInfo
     }
 
     /** 解密二维码中的配对信息 */

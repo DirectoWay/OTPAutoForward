@@ -1,4 +1,4 @@
-package com.example.autocaptcha
+package com.autocaptcha.activity
 
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -20,13 +20,14 @@ import androidx.drawerlayout.widget.DrawerLayout
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import com.example.autocaptcha.databinding.ActivityMainBinding
 import android.Manifest
 import android.os.Build
 import androidx.annotation.RequiresApi
 import androidx.lifecycle.ViewModelProvider
-import com.example.autocaptcha.service.SmsForegroundService
-import com.example.autocaptcha.ui.pair.DevicePairViewModel
+import com.autocaptcha.viewmodel.DevicePairViewModel
+import com.autocaptcha.R
+import com.autocaptcha.databinding.ActivityMainBinding
+
 
 class MainActivity : AppCompatActivity() {
     // 用于获取 MainActivity 的实例
@@ -74,13 +75,6 @@ class MainActivity : AppCompatActivity() {
 
         // 检查并请求短信权限
         checkAndRequestSmsPermission()
-
-        // 启动短信服务
-        if (devicePairViewModel.getSmsEnabledStatus()) {
-            val intent = Intent(this, SmsForegroundService::class.java)
-            ContextCompat.startForegroundService(this, intent)
-        }
-
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {

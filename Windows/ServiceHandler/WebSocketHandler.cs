@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Concurrent;
+using System.IO;
 using System.Net;
 using System.Net.WebSockets;
 using System.Text;
@@ -13,16 +14,32 @@ public class WebSocketHandler
 {
     private HttpListener? _httpListener;
 
-    /** 控制 WebSocket 启动和停止时的并发访问 */
+    /** 控制 WebSocket 服务启动和停止时的并发访问 */
     private readonly SemaphoreSlim _startStopSemaphore = new(1, 1);
 
-    /** 用于存储从 App 端接收到的消息 */
+    /** 存储从 App 端接收到的消息 */
     private static readonly ConcurrentQueue<string> ReceivedMessages = new();
 
     /** 订阅消息事件 */
     public event Action<string>? OnMessageReceived;
 
-    public async Task StartWebSocketServer()
+
+    /** WebSocket 服务监听与保活 */
+    private async Task MonitorWebSocketServer(IPAddress ipAddress, string port)
+    {
+        while (true)
+        {
+            if (_httpListener is not { IsListening: true })
+            {
+                Console.WriteLine("WebSocket 服务停止，尝试重新启动...");
+                await StartWebSocketServer(ipAddress, port);
+            }
+
+            await Task.Delay(3600000); // 检查间隔
+        }
+    }
+
+    public async Task StartWebSocketServer(IPAddress ipAddress, string port)
     {
         if (_httpListener != null)
         {
@@ -35,22 +52,13 @@ public class WebSocketHandler
         {
             if (_httpListener == null) // 防止并发初始化
             {
-                IPAddress? ipAddress;
-                try
-                {
-                    ipAddress = IPAddress.Parse(ConnectInfoHandler.GetLocalIpAddress() ?? string.Empty);
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"解析IP地址时发生错误: {ex.Message}");
-                    ipAddress = IPAddress.Any; // 使用默认 IP 地址（监听所有网络接口）
-                }
-
                 _httpListener = new HttpListener();
-                _httpListener.Prefixes.Add($"http://{ipAddress}:9000/");
+                _httpListener.Prefixes.Add($"http://{ipAddress}:{port}/");
 
                 _httpListener.Start();
-                Console.WriteLine($"WebSocket 服务器已启动 - IP地址: {ipAddress},监听端口: 9000");
+                Console.WriteLine($"WebSocket 服务器已启动 - IP地址: {ipAddress},监听端口: {port}");
+
+                _ = MonitorWebSocketServer(ipAddress, port);
                 _ = AcceptWebSocketClientsAsync();
             }
         }
@@ -78,8 +86,22 @@ public class WebSocketHandler
             }
             else
             {
-                context.Response.StatusCode = 400;
-                context.Response.Close();
+                // 回应客户端的 Http 请求
+                if (context.Request.Url?.AbsolutePath == "/ping")
+                {
+                    context.Response.StatusCode = 200;
+                    await using (var writer = new StreamWriter(context.Response.OutputStream))
+                    {
+                        await writer.WriteAsync("Pong");
+                    }
+
+                    context.Response.Close();
+                }
+                else
+                {
+                    context.Response.StatusCode = 400;
+                    context.Response.Close();
+                }
             }
         }
     }
@@ -154,45 +176,6 @@ public class WebSocketHandler
         finally
         {
             _startStopSemaphore.Release();
-        }
-    }
-
-    /** 用于模拟测试连接 WebSocket 服务端, 调用该方法即可 */
-    public static async void ConnectToWebSocketServer(string serverUrl)
-    {
-        using var webSocket = new ClientWebSocket();
-        try
-        {
-            await webSocket.ConnectAsync(new Uri(serverUrl), CancellationToken.None);
-            Console.WriteLine("WebSocket已连接到服务器");
-            const string initialMessage = "WebSocket服务器已初始化";
-            var messageBytes = Encoding.UTF8.GetBytes(initialMessage);
-            await webSocket.SendAsync(new ArraySegment<byte>(messageBytes), WebSocketMessageType.Text, true,
-                CancellationToken
-                    .None);
-            var buffer = new byte[1024];
-            while (webSocket.State == WebSocketState.Open)
-            {
-                var result =
-                    await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
-                // ReSharper disable once ConvertIfStatementToSwitchStatement
-                if (result.MessageType == WebSocketMessageType.Text)
-                {
-                    // 处理收到的消息
-                    var message = Encoding.UTF8.GetString(buffer, 0, result.Count);
-                    Console.WriteLine("WebSocket收到消息:" + message);
-                }
-                else if (result.MessageType == WebSocketMessageType.Close)
-                {
-                    await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, string.Empty,
-                        CancellationToken.None);
-                    Console.WriteLine("WebSocket连接关闭");
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine("连接WebSocket服务器时发生错误：" + ex.Message);
         }
     }
 }

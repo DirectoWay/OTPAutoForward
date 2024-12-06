@@ -7,19 +7,19 @@
 
     <fragment
         android:id="@+id/nav_pair"
-        android:name="com.example.autocaptcha.ui.pair.PairFragment"
+        android:name="com.autocaptcha.fragment.PairFragment"
         android:label="@string/menu_home"
         tools:layout="@layout/fragment_pair" />
 
     <fragment
         android:id="@+id/nav_gallery"
-        android:name="com.example.autocaptcha.ui.gallery.GalleryFragment"
+        android:name="com.autocaptcha.fragment.GalleryFragment"
         android:label="@string/menu_gallery"
         tools:layout="@layout/fragment_gallery" />
 
     <fragment
         android:id="@+id/nav_settings"
-        android:name="com.example.autocaptcha.ui.settings.SettingsFragment"
+        android:name="com.autocaptcha.fragment.SettingsFragment"
         android:label="设置"
         tools:layout="@layout/fragment_settings" />
 </navigation>

@@ -1,4 +1,4 @@
-package com.example.autocaptcha.ui.gallery
+package com.autocaptcha.fragment
 
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -7,7 +7,8 @@ import android.view.ViewGroup
 import android.widget.TextView
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
-import com.example.autocaptcha.databinding.FragmentGalleryBinding
+import com.autocaptcha.databinding.FragmentGalleryBinding
+import com.autocaptcha.viewmodel.GalleryViewModel
 
 class GalleryFragment : Fragment() {
 
@@ -23,7 +24,7 @@ class GalleryFragment : Fragment() {
         savedInstanceState: Bundle?
     ): View {
         val galleryViewModel =
-            ViewModelProvider(this).get(GalleryViewModel::class.java)
+            ViewModelProvider(this)[GalleryViewModel::class.java]
 
         _binding = FragmentGalleryBinding.inflate(inflater, container, false)
         val root: View = binding.root

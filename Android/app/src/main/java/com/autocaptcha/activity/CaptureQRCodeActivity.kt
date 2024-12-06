@@ -1,4 +1,4 @@
-package com.example.autocaptcha
+package com.autocaptcha.activity
 
 import android.app.Activity
 import android.content.Context
@@ -28,12 +28,12 @@ import com.journeyapps.barcodescanner.BarcodeResult
 import com.journeyapps.barcodescanner.DecoratedBarcodeView
 import com.journeyapps.barcodescanner.DefaultDecoderFactory
 import com.journeyapps.barcodescanner.ViewfinderView
+import com.autocaptcha.R
 
 
 class CaptureQRCodeActivity : AppCompatActivity() {
     private lateinit var barcodeView: DecoratedBarcodeView
     private lateinit var customViewfinderView: CustomViewfinderView
-
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

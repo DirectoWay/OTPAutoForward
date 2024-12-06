@@ -5,15 +5,15 @@ plugins {
 }
 
 android {
-    namespace = "com.example.autocaptcha"
+    namespace = "com.autocaptcha"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.example.autocaptcha"
+        applicationId = "com.autocaptcha"
         minSdk = 29
-        targetSdk = 34
+        targetSdk = 35
         versionCode = 1
-        versionName = "1.0"
+        versionName = "0.4.12"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -52,6 +52,7 @@ android {
         implementation(libs.zxing.android.embedded.v430)
         implementation(libs.androidx.localbroadcastmanager)
         implementation(libs.core.v341)
+        implementation(libs.work.runtime.ktx)
         testImplementation(libs.junit.junit)
         androidTestImplementation(libs.androidx.junit)
         androidTestImplementation(libs.androidx.espresso.core)

@@ -1,4 +1,4 @@
-package com.example.autocaptcha.handler
+package com.autocaptcha.handler
 
 import android.util.Base64
 import java.security.KeyFactory

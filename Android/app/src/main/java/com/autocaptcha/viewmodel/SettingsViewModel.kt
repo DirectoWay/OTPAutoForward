@@ -1,4 +1,4 @@
-package com.example.autocaptcha.ui.settings
+package com.autocaptcha.viewmodel
 
 import android.app.Application
 import android.content.Context

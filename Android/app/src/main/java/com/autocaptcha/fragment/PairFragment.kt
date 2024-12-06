@@ -1,4 +1,4 @@
-package com.example.autocaptcha.ui.pair
+package com.autocaptcha.fragment
 
 import android.Manifest
 import android.animation.Animator
@@ -23,23 +23,23 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AlertDialog
 import androidx.cardview.widget.CardView
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
-import com.example.autocaptcha.CaptureQRCodeActivity
-import com.example.autocaptcha.R
-import com.example.autocaptcha.databinding.FragmentPairBinding
-import com.example.autocaptcha.handler.DeviceHandler
-import com.example.autocaptcha.handler.QRCodeHandler
-import com.example.autocaptcha.handler.WebSocketHandler
-import com.example.autocaptcha.service.SmsForegroundService
-import com.example.autocaptcha.service.WebSocketForegroundService
+import com.autocaptcha.R
+import com.autocaptcha.databinding.FragmentPairBinding
+import com.autocaptcha.activity.CaptureQRCodeActivity
+import com.autocaptcha.dataclass.PairedDeviceInfo
+import com.autocaptcha.handler.DeviceHandler
+import com.autocaptcha.handler.QRCodeHandler
+import com.autocaptcha.viewmodel.DevicePairViewModel
+import org.json.JSONObject
 import java.net.Inet4Address
 
 class PairFragment : Fragment() {
     private lateinit var devicePairViewModel: DevicePairViewModel
-    private val webSocketHandler: WebSocketHandler = WebSocketHandler.getInstance()
     private var _binding: FragmentPairBinding? = null
     private val binding get() = _binding!!
     private val qrCodeHandler = QRCodeHandler()
@@ -52,12 +52,6 @@ class PairFragment : Fragment() {
                 Log.d("camera", "相机调用失败或取消")
             }
         }
-
-    override fun onAttach(context: Context) {
-        super.onAttach(context)
-        webSocketHandler.setAppContext(context.applicationContext)
-        webSocketHandler.setUIContext(context)
-    }
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
@@ -128,17 +122,27 @@ class PairFragment : Fragment() {
         qrData?.let {
             val pairingInfo = qrCodeHandler.analyzeQRCode(it)
             pairingInfo?.let {
-                // 启动 WebSocket 服务
-                val intent = Intent(requireContext(), WebSocketForegroundService::class.java)
-                intent.putExtra("pairingInfo", pairingInfo)
-                ContextCompat.startForegroundService(requireContext(), intent)
+                try {
+                    // 保存配对信息并刷新页面
+                    saveDeviceInfo(requireContext(), pairingInfo)
+                    Handler(Looper.getMainLooper()).postDelayed({
+                        devicePairViewModel.refreshPairedDevice.value = Unit
+                    }, 100)
 
-                // 延迟等待一下 WebSocket 服务启动完毕
-                Handler(Looper.getMainLooper()).postDelayed({
-                    devicePairViewModel.refreshPairedDevice.value = Unit
-                }, 1500)
-            } ?: Log.e("Connect", "解密或签名验证失败")
-        } ?: Log.e("Connect", "二维码数据为空")
+                    AlertDialog.Builder(requireContext()).setTitle("配对成功")
+                        .setMessage("设备 ${pairingInfo.deviceName} 已成功配对！")
+                        .setPositiveButton("确定") { dialog, _ -> dialog.dismiss() }.show()
+                } catch (e: Exception) {
+                    AlertDialog.Builder(requireContext()).setTitle("配对失败")
+                        .setMessage("保存配对信息或刷新页面失败: ${e.message}")
+                        .setPositiveButton("确定") { dialog, _ -> dialog.dismiss() }.show()
+                }
+            } ?: AlertDialog.Builder(requireContext()).setTitle("配对失败")
+                .setMessage("二维码解析失败")
+                .setPositiveButton("确定") { dialog, _ -> dialog.dismiss() }.show()
+        } ?: AlertDialog.Builder(requireContext()).setTitle("配对失败")
+            .setMessage("二维码数据为空")
+            .setPositiveButton("确定") { dialog, _ -> dialog.dismiss() }.show()
     }
 
     private fun getDeviceIPAddress(context: Context): String? {
@@ -162,20 +166,34 @@ class PairFragment : Fragment() {
     }
 
     private fun startSmsService() {
-        val intent = Intent(context, SmsForegroundService::class.java)
-        context?.let { ContextCompat.startForegroundService(it, intent) }
+
     }
 
     private fun stopSmsService() {
-        val intent = Intent(context, SmsForegroundService::class.java)
-        context?.stopService(intent)
+
+    }
+
+    /** 记录已经匹配成功过的设备 */
+    private fun saveDeviceInfo(context: Context, pairedDeviceInfo: PairedDeviceInfo) {
+        val sharedPreferences =
+            context.applicationContext.getSharedPreferences("KnownDevices", Context.MODE_PRIVATE)
+        val editor = sharedPreferences.edit()
+        val deviceInfo = JSONObject().apply {
+            put("deviceIP", pairedDeviceInfo.deviceIP)
+            put("webSocketPort", pairedDeviceInfo.webSocketPort)
+            put("deviceName", pairedDeviceInfo.deviceName)
+            put("deviceId", pairedDeviceInfo.deviceId)
+            put("deviceType", pairedDeviceInfo.deviceType)
+            put("windowsPublicKey", pairedDeviceInfo.windowsPublicKey)
+        }
+        editor.putString(pairedDeviceInfo.deviceId, deviceInfo.toString())
+        editor.apply()
     }
 
     /** 刷新已配对的设备 */
     private fun refreshPairedDevice() {
-        Log.d("refreshPairedDevice", "设备已刷新")
         val deviceHandler = DeviceHandler(binding.layoutPairedDeviceInfo)
-        val deviceList = deviceHandler.getDeviceInfo()
+        val deviceList = deviceHandler.getDeviceInfo(requireContext())
         if (deviceList.isEmpty()) {
             // 已连接的设备数为0的时候不显示整个 CardView
             binding.textPairedDevice.visibility = View.INVISIBLE
@@ -187,7 +205,7 @@ class PairFragment : Fragment() {
         }
     }
 
-    /** "短信转发" 监听器 */
+    /** "短信转发" 开关的监听器 */
     private fun smsSwitchListener() {
         binding.switchSms.setOnCheckedChangeListener { _, isChecked ->
             if (isChecked) {
@@ -256,17 +274,15 @@ class PairFragment : Fragment() {
         )
     }
 
-    /** 拨动 "短信转发" 时的展开动画 */
+    /** 拨动 "短信转发" 开关时的展开动画 */
     private fun expandAnimation() {
         val retractableContainer = binding.containerSwitchRetractable
         val switchWarnView = binding.viewSwitchWarn
         val switchSmsView = binding.viewSmsSwitch
 
         // 隐藏提示内容
-        switchWarnView.animate().alpha(0f)
-            .translationY(switchWarnView.height.toFloat())
-            .setDuration(500)
-            .setListener(object : AnimatorListenerAdapter() {
+        switchWarnView.animate().alpha(0f).translationY(switchWarnView.height.toFloat())
+            .setDuration(500).setListener(object : AnimatorListenerAdapter() {
                 override fun onAnimationEnd(animation: Animator) {
                     switchWarnView.visibility = View.INVISIBLE
                 }
@@ -276,8 +292,7 @@ class PairFragment : Fragment() {
         retractableContainer.visibility = View.VISIBLE
         retractableContainer.alpha = 0f
         retractableContainer.translationY = retractableContainer.height.toFloat()
-        retractableContainer.animate().alpha(1f).translationY(0f)
-            .setDuration(500).setListener(null)
+        retractableContainer.animate().alpha(1f).translationY(0f).setDuration(500).setListener(null)
 
         changeSwitchColor(
             switchSmsView,
@@ -287,17 +302,15 @@ class PairFragment : Fragment() {
         )
     }
 
-    /** 拨动 "短信转发" 时的收起动画 */
+    /** 拨动 "短信转发" 开关时的收起动画 */
     private fun collapseAnimation() {
         val retractableContainer = binding.containerSwitchRetractable
         val switchWarnView = binding.viewSwitchWarn
         val switchTotalView = binding.viewSmsSwitch
 
         // 收起页面内容
-        retractableContainer.animate().alpha(0f)
-            .translationY(retractableContainer.height.toFloat())
-            .setDuration(500)
-            .setListener(object : AnimatorListenerAdapter() {
+        retractableContainer.animate().alpha(0f).translationY(retractableContainer.height.toFloat())
+            .setDuration(500).setListener(object : AnimatorListenerAdapter() {
                 override fun onAnimationEnd(animation: Animator) {
                     retractableContainer.visibility = View.INVISIBLE
                 }
@@ -307,8 +320,7 @@ class PairFragment : Fragment() {
         switchWarnView.visibility = View.VISIBLE
         switchWarnView.alpha = 0f
         switchWarnView.translationY = -switchWarnView.height.toFloat()
-        switchWarnView.animate().alpha(1f).translationY(0f)
-            .setDuration(500).setListener(null)
+        switchWarnView.animate().alpha(1f).translationY(0f).setDuration(500).setListener(null)
 
         changeSwitchColor(
             switchTotalView,
@@ -318,7 +330,7 @@ class PairFragment : Fragment() {
         )
     }
 
-    /** 更改 "短信转发" 的颜色 */
+    /** 更改 "短信转发" 开关的颜色 */
     private fun changeSwitchColor(view: View, colorFrom: Int, colorTo: Int, duration: Long) {
         val colorAnimation = ValueAnimator.ofObject(ArgbEvaluator(), colorFrom, colorTo)
         colorAnimation.duration = duration
@@ -331,7 +343,6 @@ class PairFragment : Fragment() {
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null
-        webSocketHandler.setUIContext(null)
     }
 }
 

@@ -1,28 +1,24 @@
-package com.example.autocaptcha.handler
+package com.autocaptcha.handler
 
+import android.content.Context
 import android.content.Intent
+import android.util.Log
 import android.view.LayoutInflater
 import android.widget.LinearLayout
-import com.example.autocaptcha.PairedDeviceSettingsActivity
-import com.example.autocaptcha.R
-import com.example.autocaptcha.databinding.FragmentPairDeviceinfoBinding
-
-/** DeviceInfo 类用于保存已经配对的设备信息 */
-data class DeviceInfo(
-    val typeIcon: Int,
-    val deviceName: String,
-    val settingIcon: Int,
-    val deviceId: String
-)
+import com.autocaptcha.activity.PairedDeviceSettingsActivity
+import com.autocaptcha.dataclass.DisplayDeviceInfo
+import com.autocaptcha.R
+import com.autocaptcha.databinding.FragmentPairDeviceinfoBinding
 
 /** 动态的给配对页面的 RecyclerView 中生成元素, 用以动态生成已经配对的设备信息 */
 class DeviceHandler(private val container: LinearLayout) {
+    private var webSocketHandler: WebSocketHandler = WebSocketHandler()
 
-    fun getDeviceInfo(): List<DeviceInfo> {
-        val allDevicesInfo = WebSocketHandler.getInstance().getAllDevicesInfo()
+    fun getDeviceInfo(context: Context): List<DisplayDeviceInfo> {
+        val allDevicesInfo = webSocketHandler.getAllDevicesInfo(context)
 
         return allDevicesInfo.map { pairingInfo ->
-            DeviceInfo(
+            DisplayDeviceInfo(
                 typeIcon = getDeviceIconForType(pairingInfo.deviceType),
                 deviceName = pairingInfo.deviceName,
                 settingIcon = R.drawable.baseline_settings_24, // 设置图标
@@ -42,7 +38,7 @@ class DeviceHandler(private val container: LinearLayout) {
     }
 
     /** 动态绑定设备信息与图标 */
-    fun bindDeviceInfo(devices: List<DeviceInfo>) {
+    fun bindDeviceInfo(devices: List<DisplayDeviceInfo>) {
         container.removeAllViews() // 清空之前的视图
         for (device in devices) {
             val binding = FragmentPairDeviceinfoBinding.inflate(
