@@ -4,7 +4,9 @@ using System.Linq;
 using System.Net;
 using System.Text.RegularExpressions;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
+using Windows.UI.Notifications;
 using Microsoft.Toolkit.Uwp.Notifications;
 using WinCAPTCHA.ServiceHandler;
 using Clipboard = System.Windows.Clipboard;
@@ -37,7 +39,59 @@ public partial class MainWindow
         _notifyIconHandler = new NotifyIconHandler(RestoreWindow, ExitApplication);
         _webSocketHandler = new WebSocketHandler();
         ToastNotificationManagerCompat.OnActivated += OnToastActivated;
-        StartWebSocketServer();
+
+        if (CheckWebSocketPort(int.Parse(Port)))
+        {
+            ShowPortInUseNotification();
+            Task.Delay(3000).ContinueWith(_ => Application.Current.Dispatcher.Invoke(Application.Current.Shutdown));
+        }
+        else
+        {
+            StartWebSocketServer();
+        }
+    }
+
+    /** 检查 9224 端口是否已经被占用 */
+    private static bool CheckWebSocketPort(int port)
+    {
+        var isAvailable = false;
+
+        try
+        {
+            // 检查 TCP 端口
+            var tcpListeners = System.Net.NetworkInformation.IPGlobalProperties.GetIPGlobalProperties()
+                .GetActiveTcpListeners();
+            if (tcpListeners.Any(t => t.Port == port))
+            {
+                isAvailable = true;
+            }
+
+            // 检查 UDP 端口
+            var udpListeners = System.Net.NetworkInformation.IPGlobalProperties.GetIPGlobalProperties()
+                .GetActiveUdpListeners();
+            if (udpListeners.Any(u => u.Port == port))
+            {
+                isAvailable = true;
+            }
+
+            return isAvailable;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"端口检测异常：{ex.Message}");
+            return false;
+        }
+    }
+
+    /** 9224 端口被占用时弹出 Toast 弹窗提示用户 */
+    private static void ShowPortInUseNotification()
+    {
+        var content = new ToastContentBuilder()
+            .AddText($"端口 {Port} 已被占用，程序将于 3 秒后关闭。")
+            .GetToastContent();
+
+        var notification = new ToastNotification(content.GetXml());
+        ToastNotificationManagerCompat.CreateToastNotifier().Show(notification);
     }
 
     private async void StartWebSocketServer()
