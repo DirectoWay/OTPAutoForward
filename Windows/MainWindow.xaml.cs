@@ -87,19 +87,74 @@ public partial class MainWindow
         }
     }
 
-    /** 弹出含有短信内容的 Toast 弹窗 */
     private static void ShowToastNotification(string message)
     {
         Application.Current.Dispatcher.Invoke(() =>
         {
-            var toastId = Guid.NewGuid().ToString();
-            new ToastContentBuilder()
-                .AddArgument("action", "copy")
-                .AddArgument("toastId", toastId)
-                .AddArgument("message", message)
-                .AddText(message)
-                .Show();
+            var toastBuilder = new ToastContentBuilder()
+                .AddText(message);
+
+            // 提取短信中的关键信息并动态生成按钮
+            var extractedInfo = ExtractInfoFromMessage(message);
+
+            if (extractedInfo.Any())
+            {
+                foreach (var (key, value) in extractedInfo)
+                {
+                    // 限制按钮文本的长度
+                    var buttonText = value.Length > 20 ? string.Concat(value.AsSpan(0, 17), "...") : value;
+                    toastBuilder.AddButton(new ToastButton()
+                        .SetContent($"{key}: {buttonText}") // 按钮显示的内容, 如 "验证码: 123456"
+                        .AddArgument("action", "copy")
+                        .AddArgument("message", value)); // 点击按钮时传递的内容
+                }
+            }
+            else
+            {
+                // 对于非验证码类型的短信, 点击 Toast 弹窗复制整条短信的内容
+                toastBuilder.AddArgument("action", "copy")
+                    .AddArgument("message", message);
+            }
+
+            toastBuilder.Show();
         });
+    }
+
+    /** 提取短信中的关键信息 (验证码、识别码、电话号码等) */
+    private static Dictionary<string, string> ExtractInfoFromMessage(string message)
+    {
+        var extractedInfo = new Dictionary<string, string>();
+
+        // const string test = "您好朋友, 这是一条短信";
+        // 正则规则表
+        var patterns = new List<(string key, string pattern)>
+        {
+            // 带前缀的字母+符号+数字形式的验证码
+            ("验证码",
+                @"(?:验证码\s*[:：]?\s*|是您的验证码|是您.*?验证码|验证码是|验证码为|是验证码|[^\w]是|[^\w])\s*([A-Za-z][-_.]?[A-Za-z0-9]*[-_.]?[\d]{4,10})"),
+
+            // 字母数字混合验证码
+            ("验证码", @"\b([A-Za-z0-9-]{5,10})\b.*?(验证码|临时密码|动态码)"),
+
+            // 核心关键字匹配
+            ("验证码", @"(?:验证码\s*[:：]?\s*|是您的验证码|是您.*?验证码|验证码是|验证码为|是验证码|[^\w]是|[^\w])\s*([\d]{4,6})(?![\d-])"),
+
+            // 4-6位数字验证码（简易场景）
+            ("验证码", @"\b([\d]{4,6})\b.*?(验证码|临时密码|动态码)"),
+
+            ("识别码", @"(?:识别码|识别码是)\s*[:：]?\s*([A-Za-z0-9-_.]+)"),
+            ("电话号码", @"(?:电话|致电|热线)[:：]?\s*([0-9-]+)")
+        };
+        foreach (var (key, pattern) in patterns)
+        {
+            var match = Regex.Match(message, pattern);
+            if (match.Success)
+            {
+                extractedInfo[key] = match.Groups[1].Value;
+            }
+        }
+
+        return extractedInfo;
     }
 
     /** Toast 弹窗被点击时的事件 */
@@ -109,45 +164,10 @@ public partial class MainWindow
         {
             var arguments = ToastArguments.Parse(toastArgs.Argument);
             if (arguments["action"] != "copy") return;
-            var message = arguments["message"];
-            var textToCopy = VerifyMessage(message, out var verificationCode) ? verificationCode : message;
+
+            var textToCopy = arguments["message"];
             CopyToClipboard(textToCopy);
         });
-    }
-
-    /** 解析短信并判断其是否为验证码短信 非验证码短信复制整条消息 验证码短信则只复制验证码本身 */
-    private static bool VerifyMessage(string message, out string verificationCode)
-    {
-        verificationCode = string.Empty;
-
-        // 排除掉包含 "验证" 字眼但不携带四位或六位数字的短信
-        if (!message.Contains("验证码") && !message.Contains("验证") && !Regex.IsMatch(message, @"\b\d{4,6}\b"))
-            return false;
-
-        // 正则匹配规则表(规则先后顺序会影响匹配结果!!)
-        var rules = new List<Regex>
-        {
-            // 带前缀的字母+符号+数字形式的验证码
-            new(
-                @"(?:验证码\s*[:：]?\s*|是您的验证码|是您.*?验证码|验证码是|验证码为|是验证码|[^\w]是|[^\w])\s*([A-Za-z][-_.]?[A-Za-z0-9]*[-_.]?[\d]{4,10})"),
-
-            // 字母数字混合验证码
-            new(@"\b([A-Za-z0-9-]{5,10})\b.*?(验证码|临时密码|动态码)"),
-
-            // 核心关键字匹配
-            new(@"(?:验证码\s*[:：]?\s*|是您的验证码|是您.*?验证码|验证码是|验证码为|是验证码|[^\w]是|[^\w])\s*([\d]{4,6})(?![\d-])"),
-
-            // 4-6位数字验证码(简易场景)
-            new(@"\b([\d]{4,6})\b.*?(验证码|临时密码|动态码)")
-        };
-
-        verificationCode = string.Empty;
-
-        // 遍历规则表并匹配验证码
-        var match = rules.Select(rule => rule.Match(message)).FirstOrDefault(m => m.Success);
-        if (match == null) return false;
-        verificationCode = match.Groups[1].Value.Trim();
-        return true;
     }
 
     /** 将短信内容复制进剪贴板 */
