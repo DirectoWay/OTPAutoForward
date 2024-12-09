@@ -9,8 +9,13 @@
     </PropertyGroup>
 
     <ItemGroup>
+      <PackageReference Include="Autofac" Version="8.1.1" />
+      <PackageReference Include="Autofac.Extensions.DependencyInjection" Version="10.0.0" />
       <PackageReference Include="Hardcodet.NotifyIcon.Wpf" Version="2.0.1" />
       <PackageReference Include="Microsoft.Data.Sqlite" Version="9.0.0" />
+      <PackageReference Include="Microsoft.Extensions.Configuration" Version="9.0.0" />
+      <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="9.0.0" />
+      <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="9.0.0" />
       <PackageReference Include="Microsoft.Toolkit.Uwp.Notifications" Version="7.1.3" />
       <PackageReference Include="Microsoft.Windows.Compatibility" Version="8.0.10" />
       <PackageReference Include="ZXing.Net" Version="0.16.9" />
@@ -19,6 +24,10 @@
     <ItemGroup>
       <None Remove="sms.ico" />
       <Content Include="sms.ico">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </Content>
+      <None Remove="appsettings.json" />
+      <Content Include="appsettings.json">
         <CopyToOutputDirectory>Always</CopyToOutputDirectory>
       </Content>
     </ItemGroup>

@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
 using System.Net;
+using System.Net.NetworkInformation;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -18,8 +20,7 @@ namespace WinCAPTCHA;
 /// </summary>
 public partial class MainWindow
 {
-    private readonly NotifyIconHandler _notifyIconHandler;
-    private readonly WebSocketHandler _webSocketHandler;
+    private readonly WebSocketHandler _webSocketHandler = new();
 
     /** WebSocket 服务 IP 地址*/
     private readonly IPAddress _ipAddress = ConnectInfoHandler.GetLocalIP();
@@ -27,17 +28,12 @@ public partial class MainWindow
     /** WebSocket 服务端口 */
     private const string Port = "9224";
 
-    /** 程序的主窗口是否存在 */
-    private bool _isExiting;
-
     /** 短信订阅标志 */
     private int _isEventSubscribed;
 
     public MainWindow()
     {
         InitializeComponent();
-        _notifyIconHandler = new NotifyIconHandler(RestoreWindow, ExitApplication);
-        _webSocketHandler = new WebSocketHandler();
         ToastNotificationManagerCompat.OnActivated += OnToastActivated;
 
         if (CheckWebSocketPort(int.Parse(Port)))
@@ -59,7 +55,7 @@ public partial class MainWindow
         try
         {
             // 检查 TCP 端口
-            var tcpListeners = System.Net.NetworkInformation.IPGlobalProperties.GetIPGlobalProperties()
+            var tcpListeners = IPGlobalProperties.GetIPGlobalProperties()
                 .GetActiveTcpListeners();
             if (tcpListeners.Any(t => t.Port == port))
             {
@@ -67,7 +63,7 @@ public partial class MainWindow
             }
 
             // 检查 UDP 端口
-            var udpListeners = System.Net.NetworkInformation.IPGlobalProperties.GetIPGlobalProperties()
+            var udpListeners = IPGlobalProperties.GetIPGlobalProperties()
                 .GetActiveUdpListeners();
             if (udpListeners.Any(u => u.Port == port))
             {
@@ -104,20 +100,6 @@ public partial class MainWindow
         await _webSocketHandler.StartWebSocketServer(_ipAddress, Port);
     }
 
-    private void RestoreWindow()
-    {
-        Show();
-        WindowState = WindowState.Normal;
-        Activate();
-    }
-
-    private void ExitApplication()
-    {
-        _isExiting = true;
-        _notifyIconHandler.Dispose();
-        Application.Current.Shutdown();
-    }
-
     protected override void OnStateChanged(EventArgs e)
     {
         base.OnStateChanged(e);
@@ -128,17 +110,10 @@ public partial class MainWindow
     }
 
     /** 阻止真正的程序窗口关闭并最小化至托盘 */
-    protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
+    protected override void OnClosing(CancelEventArgs e)
     {
-        if (!_isExiting)
-        {
-            e.Cancel = true;
-            Hide();
-        }
-        else
-        {
-            base.OnClosing(e);
-        }
+        e.Cancel = true;
+        Hide();
     }
 
     private static void ShowToastNotification(string message)
