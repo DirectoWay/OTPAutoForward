@@ -40,6 +40,8 @@ public class NotifyIconHandler
     /** 初始化托盘菜单栏 */
     private void InitializeContextMenu()
     {
+        const string testMessage = "尾号为 1234 的用户您好, 967431 是您的验证码, 请查收";
+
         var contextMenu = new ContextMenuStrip();
 
         var autoStartItem = new ToolStripMenuItem("开机自启动");
@@ -58,7 +60,11 @@ public class NotifyIconHandler
         };
         contextMenu.Items.Add(autoStartItem);
 
+        contextMenu.Items.Add("显示短信效果", null, (_, _) => MainWindow.ShowToastNotification(testMessage));
         contextMenu.Items.Add("显示主界面", null, (_, _) => _onRestoreWindow());
+
+        contextMenu.Items.Add(new ToolStripSeparator()); // 分隔符
+
         contextMenu.Items.Add("退出", null, (_, _) =>
         {
             _notifyIcon.Visible = false; // 移除托盘图标
