@@ -1,10 +1,18 @@
 package com.autocaptcha.handler
 
 import android.util.Base64
+import java.util.Base64 as JavaBase64
 import java.security.KeyFactory
 import java.security.KeyPairGenerator
 import java.security.spec.X509EncodedKeySpec
 import javax.crypto.Cipher
+import javax.crypto.spec.IvParameterSpec
+import javax.crypto.spec.SecretKeySpec
+
+/** 对称加密密钥 */
+object AESKey {
+    const val KEY = "autoCAPTCHA-encryptedKey"
+}
 
 class KeyHandler {
     // 生成Android端的临时密钥对
@@ -37,6 +45,19 @@ class KeyHandler {
         cipher.init(Cipher.DECRYPT_MODE, key)
         val decryptedData = cipher.doFinal(Base64.decode(encryptedMessage, Base64.DEFAULT))
         return String(decryptedData)
+    }
+
+    /** 对称加密方法 */
+    fun encryptString(plainText: String): String {
+        val cipher = Cipher.getInstance("AES/CBC/PKCS7Padding")
+        val secretKey = SecretKeySpec(AESKey.KEY.toByteArray(Charsets.UTF_8), "AES")
+        val iv = ByteArray(16) // 初始化向量
+
+        // Cipher模式
+        cipher.init(Cipher.ENCRYPT_MODE, secretKey, IvParameterSpec(iv))
+        val encryptedBytes = cipher.doFinal(plainText.toByteArray(Charsets.UTF_8))
+
+        return JavaBase64.getEncoder().encodeToString(encryptedBytes)
     }
 }
 

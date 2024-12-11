@@ -96,9 +96,9 @@ public static class KeyHandler
     }
 
     /// <summary>
-    /// String 类型的 AES 加密
+    /// String 类型的 AES 加密方法 可用于加密公钥或二维码内容
     /// </summary>
-    /// <param name="plainText">可用于加密公钥或二维码内容</param>
+    /// <param name="plainText">用于对称加密的原文</param>
     public static string EncryptString(string plainText)
     {
         using var aes = Aes.Create();
@@ -119,9 +119,9 @@ public static class KeyHandler
     }
 
     /// <summary>
-    /// String 类型的 AES 解密 
+    /// String 类型的 AES 解密方法 可用于解密公钥或二维码内容
     /// </summary>
-    /// <param name="cipherText">可用于解密公钥或二维码内容</param>
+    /// <param name="cipherText">经过对称加密后的密文</param>
     public static string DecryptString(string cipherText)
     {
         try
@@ -153,10 +153,10 @@ public static class KeyHandler
     }
 
     /// <summary>
-    /// Bytes 类型的 AES 加密
+    /// Byte[] 类型的 AES 加密方法 可用于加密私钥
     /// </summary>
-    /// <param name="plainBytes">可用于加密私钥</param>
-    public static byte[] EncryptBytes(byte[] plainBytes)
+    /// <param name="plainBytes">用于对称加密的原字节数组</param>
+    private static byte[] EncryptBytes(byte[] plainBytes)
     {
         using var aes = Aes.Create();
         aes.Mode = CipherMode.CBC;
@@ -173,9 +173,9 @@ public static class KeyHandler
     }
 
     /// <summary>
-    /// Bytes 类型的 AES 解密
+    /// Byte[] 类型的 AES 解密方法 可用于解密私钥
     /// </summary>
-    /// <param name="cipherBytes">可用于解密私钥</param>
+    /// <param name="cipherBytes">经过对称加密后的字节数组</param>
     private static byte[] DecryptBytes(byte[] cipherBytes)
     {
         try

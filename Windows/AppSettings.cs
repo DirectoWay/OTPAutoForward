@@ -2,12 +2,9 @@
 
 public class AppSettings
 {
-    private readonly string? _appName;
+    /** 程序名称 默认为 WinCAPTCHA */
+    public string AppName { get; init; } = "WinCAPTCHA";
 
-    public AppSettings(string? appName = null)
-    {
-        _appName = string.IsNullOrWhiteSpace(appName) ? null : appName;
-    }
-
-    public string AppName => string.IsNullOrWhiteSpace(_appName) ? "默认值" : _appName;
+    /** 验证 WebSocket 请求头中时间戳的超时时间 默认为 600 秒 */
+    public int WebSocketVerifyTimeout { get; init; } = 600;
 }

@@ -14,6 +14,12 @@ public class WebSocketHandler
 {
     private HttpListener? _httpListener;
 
+    /** WebSocket 请求头自定义字段 */
+    private const string WebSocketHeaderField = "X-WinCAPTCHA-Auth";
+
+    /** WebSocket 请求头中必须包含的密钥 */
+    private const string WebSocketHeaderKey = "autoCAPTCHA-encryptedKey";
+
     /** 控制 WebSocket 服务启动和停止时的并发访问 */
     private readonly SemaphoreSlim _startStopSemaphore = new(1, 1);
 
@@ -81,8 +87,18 @@ public class WebSocketHandler
             var context = await _httpListener.GetContextAsync();
             if (context.Request.IsWebSocketRequest)
             {
-                var webSocketContext = await context.AcceptWebSocketAsync(null);
-                _ = HandleWebSocketConnectionAsync(webSocketContext.WebSocket);
+                // 验证请求头中的认证信息
+                if (VerifyWebSocketHeader(context.Request.Headers))
+                {
+                    var webSocketContext = await context.AcceptWebSocketAsync(null);
+                    _ = HandleWebSocketConnectionAsync(webSocketContext.WebSocket);
+                }
+                else
+                {
+                    Console.WriteLine(DateTime.Now + " - 收到非法的 WebSocket 请求");
+                    context.Response.StatusCode = 401; // 未授权
+                    context.Response.Close();
+                }
             }
             else
             {
@@ -106,6 +122,56 @@ public class WebSocketHandler
         }
     }
 
+    /// <summary>
+    /// 建立 WebSocket 连接时验证客户端的请求头 请求头中必须包含关键密钥与时间戳
+    /// </summary>
+    /// <param name="headers">键值对形式的请求头参数 如: X-WinCAPTCHA-Auth: encryptedToken</param>
+    /// <returns>true 代表请求头验证通过 允许建立 WebSocket 连接</returns>
+    private static bool VerifyWebSocketHeader(System.Collections.Specialized.NameValueCollection headers)
+    {
+        // 先检查请求头中是否包含自定义字段
+        var encryptedAuth = headers[WebSocketHeaderField];
+        if (string.IsNullOrEmpty(encryptedAuth))
+        {
+            Console.WriteLine("WebSocket 请求头中缺少验证字段");
+            return false;
+        }
+
+        try
+        {
+            // 解密请求头中的认证信息
+            var decryptedAuth = KeyHandler.DecryptString(encryptedAuth);
+            var parts = decryptedAuth.Split('+');
+            if (parts.Length != 2 || parts[0] != WebSocketHeaderKey)
+            {
+                Console.WriteLine($"WebSocket 请求头内容错误: {parts}");
+                return false;
+            }
+
+            // 验证时间戳 超时的 WebSocket 请求为无效请求
+            if (!long.TryParse(parts[1], out var clientTimestamp))
+            {
+                Console.WriteLine($"WebSocket 请求头包含无效时间戳: {clientTimestamp}");
+                return false;
+            }
+
+            var serverTimestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            var differenceInSeconds = Math.Abs(serverTimestamp - clientTimestamp); // 检查时间戳是否在超时时间以内
+            if (differenceInSeconds <= App.AppSettings.WebSocketVerifyTimeout)
+            {
+                return true;
+            }
+
+            Console.WriteLine("WebSocket 请求已过期");
+            return false;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"WebSocket 请求头验证异常: {ex.Message}");
+            return false;
+        }
+    }
+
     /** 处理客户端的 WebSocket 连接请求 */
     private async Task HandleWebSocketConnectionAsync(WebSocket webSocket)
     {
@@ -123,6 +189,7 @@ public class WebSocketHandler
             else
             {
                 var message = Encoding.UTF8.GetString(buffer, 0, result.Count);
+                message = KeyHandler.DecryptString(message); // 解密 App 端发来的消息
                 Console.WriteLine(DateTime.Now + message);
                 if (string.IsNullOrWhiteSpace(message))
                 {

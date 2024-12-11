@@ -53,10 +53,7 @@ class SmsReceiver : BroadcastReceiver() {
                 val sender = smsMessage.originatingAddress
                 // 处理短信内容
                 Log.d("SmsReceiver", "SmsReceiver 收到短信：$messageBody 发送者：$sender")
-                WebSocketWorker.sendWebSocketMessage(
-                    appContext,
-                    "收到短信：$messageBody\n发送者：$sender "
-                )
+                WebSocketWorker.sendWebSocketMessage(appContext, "$messageBody\n发送者：$sender")
             }
         }
     }

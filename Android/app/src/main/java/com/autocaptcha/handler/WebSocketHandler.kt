@@ -11,11 +11,14 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.autocaptcha.dataclass.PairedDeviceInfo
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -35,19 +38,30 @@ import java.net.NetworkInterface
 import java.net.Socket
 import java.net.SocketException
 
+/** Win 端提供 WebSocket 服务的端口号 */
+private const val WebSocketPort = 9224
+
+/** WebSocket 请求头自定义字段 */
+private const val WebSocketHeaderField = "X-WinCAPTCHA-Auth"
+
+/** WebSocket 请求头中必须包含的密钥 */
+private const val WebSocketHeaderKey = "autoCAPTCHA-encryptedKey"
+
+/** WebSocket 连接超时时间 */
+private const val CONNECTION_TIMEOUT = 3 * 60 * 1000L
+
+/** 用于给 WorkManager 传递待发消息的 Key */
+private const val KEY_MESSAGE = "message"
+
+
 /** 为 WebSocket 连接时提供工具方法 */
 class WebSocketWorker(context: Context, workerParams: WorkerParameters) :
     CoroutineWorker(context, workerParams) {
     private val webSocketHandler = WebSocketHandler()
+    private val keyHandler = KeyHandler()
     private val tag = "WebSocketWorker"
 
     companion object {
-
-        private const val KEY_MESSAGE = "message"
-
-        /** WebSocket 连接超时时间 */
-        private const val CONNECTION_TIMEOUT = 3 * 60 * 1000L
-
         /** 创建给 Win 端发送消息的 WorkRequest */
         fun sendWebSocketMessage(context: Context, message: String) {
 
@@ -66,15 +80,19 @@ class WebSocketWorker(context: Context, workerParams: WorkerParameters) :
 
     override suspend fun doWork(): Result {
         val appContext = applicationContext
-        val message = inputData.getString(KEY_MESSAGE)
+        var message = inputData.getString(KEY_MESSAGE)
         return try {
-            val webSocketInfo = webSocketHandler.getOnlineDevices(9224)
+            val webSocketInfo = webSocketHandler.getOnlineDevices(WebSocketPort)
 
+            if (message == null) {
+                Log.e(tag, "WorkManager 获取 WebSocket 待发消息时异常")
+                return Result.failure()
+            }
             if (webSocketInfo.isEmpty()) {
                 Log.e(tag, "该局域网中暂无在线设备")
                 return Result.failure()
             }
-
+            message = keyHandler.encryptString(message) // 加密信息内容
             connectWebSocket(webSocketInfo, message)
             Result.success()
         } catch (e: TimeoutCancellationException) {
@@ -88,7 +106,7 @@ class WebSocketWorker(context: Context, workerParams: WorkerParameters) :
     }
 
     private suspend fun connectWebSocket(
-        webSocketInfo: List<String>, message: String? = null
+        webSocketInfo: List<String>, message: String
     ) {
         withContext(Dispatchers.IO) {
             /** 每个设备的 WebSocket连接状态 */
@@ -101,11 +119,14 @@ class WebSocketWorker(context: Context, workerParams: WorkerParameters) :
                             .pingInterval(30, TimeUnit.SECONDS) // 保持连接活跃
                             .build()
 
-                        val request = Request.Builder().url(serverUrl).build()
+                        val request = Request.Builder().url(serverUrl)
+                            .addHeader(WebSocketHeaderField, generateWebSocketHeader())
+                            .build()
 
                         val connectionResult = CompletableDeferred<WebSocket?>()
 
                         val webSocketListener = object : WebSocketListener() {
+                            private var timeoutJob: Job? = null
                             override fun onOpen(
                                 webSocket: WebSocket, response: okhttp3.Response
                             ) {
@@ -113,11 +134,12 @@ class WebSocketWorker(context: Context, workerParams: WorkerParameters) :
                                 webSocketRefs[index].set(webSocket)
                                 message?.let { webSocket.send(it) }
                                 connectionResult.complete(webSocket)
+                                startConnectionTimeout(webSocket)
                             }
 
                             override fun onMessage(webSocket: WebSocket, text: String) {
                                 Log.d(tag, "收到消息: $text 设备: $serverUrl")
-                                resetConnectionTimeout()
+                                resetConnectionTimeout(webSocket)
                             }
 
                             override fun onFailure(
@@ -133,12 +155,25 @@ class WebSocketWorker(context: Context, workerParams: WorkerParameters) :
                                 Log.d(tag, "WebSocket 已关闭: $reason, 设备: $serverUrl")
                                 connectionResult.complete(webSocket)
                             }
+
+                            private fun startConnectionTimeout(webSocket: WebSocket) {
+                                timeoutJob = CoroutineScope(Dispatchers.IO).launch {
+                                    delay(CONNECTION_TIMEOUT)
+                                    Log.d(tag, "连接超时, 关闭 WebSocket 设备: $serverUrl")
+                                    webSocket.close(1000, "连接超时")
+                                }
+                            }
+
+                            /** 重置连接超时计时器 */
+                            private fun resetConnectionTimeout(webSocket: WebSocket) {
+                                timeoutJob?.cancel()
+                                startConnectionTimeout(webSocket)
+                            }
                         }
 
-                        // 创建连接
                         client.newWebSocket(request, webSocketListener)
 
-                        // 返回WebSocket连接（成功则是WebSocket对象，失败则是null）
+                        // 返回 WebSocket 连接对象
                         connectionResult.await()
                     } catch (e: Exception) {
                         Log.e(tag, "连接 WebSocket 过程中出现异常: ${e.message}")
@@ -157,10 +192,13 @@ class WebSocketWorker(context: Context, workerParams: WorkerParameters) :
         }
     }
 
-    private fun resetConnectionTimeout() {
-        Log.d(tag, "重置连接超时计时器")
+    /** 生成 WebSocket 请求头内容 */
+    private fun generateWebSocketHeader(): String {
+        val timestamp = System.currentTimeMillis() / 1000 // 精准到秒即可, 与 Win 端的时间戳格式保持一致
+        val plainHeader = "$WebSocketHeaderKey+$timestamp" // 合并密钥与时间戳, 用加号进行分隔
+        val cipherHeader = keyHandler.encryptString(plainHeader) // 加密请求头内容
+        return cipherHeader
     }
-
 }
 
 class WebSocketHandler {
