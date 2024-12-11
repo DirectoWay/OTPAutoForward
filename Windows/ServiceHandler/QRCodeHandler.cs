@@ -86,31 +86,38 @@ public static class QRCodeHandler
             }
         };
 
+        // 生成像素数据
         var pixelData = qrCodeWriter.Write(qrData);
+
         using var bitmap = new Bitmap(pixelData.Width, pixelData.Height,
             System.Drawing.Imaging.PixelFormat.Format32bppRgb);
-        var bitmapData = bitmap.LockBits(new Rectangle(0, 0, pixelData.Width, pixelData.Height),
+        var bitmapData = bitmap.LockBits(
+            new Rectangle(0, 0, pixelData.Width, pixelData.Height),
             System.Drawing.Imaging.ImageLockMode.WriteOnly,
-            System.Drawing.Imaging.PixelFormat.Format32bppRgb);
+            System.Drawing.Imaging.PixelFormat.Format32bppRgb
+        );
         try
         {
-            System.Runtime.InteropServices.Marshal.Copy(pixelData.Pixels, 0, bitmapData.Scan0,
-                pixelData.Pixels.Length);
+            // 拷贝像素数据到位图
+            System.Runtime.InteropServices.Marshal.Copy(pixelData.Pixels, 0, bitmapData.Scan0, pixelData.Pixels.Length);
         }
         finally
         {
             bitmap.UnlockBits(bitmapData);
         }
 
+        // 将位图保存到内存流
         using var memory = new MemoryStream();
         bitmap.Save(memory, System.Drawing.Imaging.ImageFormat.Bmp);
         memory.Position = 0;
 
+        // 加载 BitmapImage
         var bitmapImage = new BitmapImage();
         bitmapImage.BeginInit();
-        bitmapImage.StreamSource = memory;
-        bitmapImage.CacheOption = BitmapCacheOption.OnLoad;
+        bitmapImage.StreamSource = new MemoryStream(memory.ToArray()); // 确保流不被释放
+        bitmapImage.CacheOption = BitmapCacheOption.OnLoad; // 确保立即加载流
         bitmapImage.EndInit();
+        bitmapImage.Freeze(); // 确保线程安全
 
         return bitmapImage;
     }

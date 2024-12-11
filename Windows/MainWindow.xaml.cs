@@ -36,21 +36,25 @@ public partial class MainWindow
         InitializeComponent();
         ToastNotificationManagerCompat.OnActivated += OnToastActivated;
 
-        if (CheckWebSocketPort(int.Parse(Port)))
+        var portStatus = CheckWebSocketPort(int.Parse(Port));
+        if (portStatus)
+        {
+            StartWebSocketServer();
+        }
+        else
         {
             ShowPortInUseNotification();
             Task.Delay(3000).ContinueWith(_ => Application.Current.Dispatcher.Invoke(Application.Current.Shutdown));
         }
-        else
-        {
-            StartWebSocketServer();
-        }
     }
 
-    /** 检查 9224 端口是否已经被占用 */
+    ///<summary>
+    /// 检查 9224 端口是否已经被占用
+    /// </summary>
+    /// <returns>true 代表着端口可用</returns>
     private static bool CheckWebSocketPort(int port)
     {
-        var isAvailable = false;
+        var isAvailable = true;
 
         try
         {
@@ -59,7 +63,7 @@ public partial class MainWindow
                 .GetActiveTcpListeners();
             if (tcpListeners.Any(t => t.Port == port))
             {
-                isAvailable = true;
+                isAvailable = false;
             }
 
             // 检查 UDP 端口
@@ -67,7 +71,7 @@ public partial class MainWindow
                 .GetActiveUdpListeners();
             if (udpListeners.Any(u => u.Port == port))
             {
-                isAvailable = true;
+                isAvailable = false;
             }
 
             return isAvailable;
@@ -164,7 +168,7 @@ public partial class MainWindow
         };
 
         var uniqueResults = new HashSet<string>();
-        
+
         foreach (var value in from pattern in patterns
                  select Regex.Matches(message, pattern)
                  into matches
