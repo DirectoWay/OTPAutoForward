@@ -176,45 +176,68 @@ public class WebSocketHandler
     private async Task HandleWebSocketConnectionAsync(WebSocket webSocket)
     {
         var buffer = new byte[1024];
-        while (webSocket.State == WebSocketState.Open)
+        try
         {
-            var result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
-            if (result.MessageType != WebSocketMessageType.Text)
+            while (webSocket.State == WebSocketState.Open)
             {
-                if (result.MessageType == WebSocketMessageType.Close)
+                var result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
+                if (result.MessageType != WebSocketMessageType.Text)
                 {
-                    await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing", CancellationToken.None);
+                    if (result.MessageType == WebSocketMessageType.Close)
+                    {
+                        await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing",
+                            CancellationToken.None);
+                    }
+                }
+                else
+                {
+                    var message = Encoding.UTF8.GetString(buffer, 0, result.Count);
+                    message = KeyHandler.DecryptString(message); // 解密 App 端发来的消息
+                    Console.WriteLine(DateTime.Now + message);
+                    if (string.IsNullOrWhiteSpace(message))
+                    {
+                        Console.WriteLine("收到空消息，忽略处理");
+                        continue;
+                    }
+
+                    ReceivedMessages.Enqueue(message);
+
+                    try
+                    {
+                        OnMessageReceived?.Invoke(message);
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"消息处理订阅触发异常: {ex.Message}");
+                    }
+
+                    // 发送确认消息给 App 端
+                    var responseMessage = $"已收到消息: {message}";
+                    var responseBuffer = Encoding.UTF8.GetBytes(responseMessage);
+                    await webSocket.SendAsync(new ArraySegment<byte>(responseBuffer), WebSocketMessageType.Text, true,
+                        CancellationToken.None);
+                    Console.WriteLine($"{DateTime.Now}已发送确认消息 ");
                 }
             }
-            else
+        }
+        catch (WebSocketException ex)
+        {
+            Console.WriteLine($"WebSocket 异常: {ex.Message}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"WebSocket 异常: {ex.Message}");
+        }
+        finally
+        {
+            if (webSocket.State != WebSocketState.Closed && webSocket.State != WebSocketState.Aborted)
             {
-                var message = Encoding.UTF8.GetString(buffer, 0, result.Count);
-                message = KeyHandler.DecryptString(message); // 解密 App 端发来的消息
-                Console.WriteLine(DateTime.Now + message);
-                if (string.IsNullOrWhiteSpace(message))
-                {
-                    Console.WriteLine("收到空消息，忽略处理");
-                    continue;
-                }
-
-                ReceivedMessages.Enqueue(message);
-
-                try
-                {
-                    OnMessageReceived?.Invoke(message);
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"消息处理订阅触发异常: {ex.Message}");
-                }
-
-                // 发送确认消息给 App 端
-                var responseMessage = $"已收到消息: {message}";
-                var responseBuffer = Encoding.UTF8.GetBytes(responseMessage);
-                await webSocket.SendAsync(new ArraySegment<byte>(responseBuffer), WebSocketMessageType.Text, true,
-                    CancellationToken.None);
-                Console.WriteLine($"{DateTime.Now}已发送确认消息 ");
+                await webSocket.CloseAsync(WebSocketCloseStatus.InternalServerError,
+                    "WebSocket 连接异常中断", CancellationToken.None);
             }
+
+            webSocket.Dispose();
+            Console.WriteLine("WebSocket 连接已关闭");
         }
     }
 

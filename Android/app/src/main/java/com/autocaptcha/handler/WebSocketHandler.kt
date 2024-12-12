@@ -53,6 +53,12 @@ private const val CONNECTION_TIMEOUT = 3 * 60 * 1000L
 /** 用于给 WorkManager 传递待发消息的 Key */
 private const val KEY_MESSAGE = "message"
 
+/** WorkManager 操作异常后当前重试次数的 Key */
+const val KEY_RETRY_COUNT = "retry_count"
+
+/** WorkManager 操作异常后最大的重试次数 */
+const val MAX_RETRY_COUNT = 3
+
 
 /** 为 WebSocket 连接时提供工具方法 */
 class WebSocketWorker(context: Context, workerParams: WorkerParameters) :
@@ -80,6 +86,7 @@ class WebSocketWorker(context: Context, workerParams: WorkerParameters) :
 
     override suspend fun doWork(): Result {
         val appContext = applicationContext
+        val currentRetryCount = inputData.getInt(KEY_RETRY_COUNT, 0)
         var message = inputData.getString(KEY_MESSAGE)
         return try {
             val webSocketInfo = webSocketHandler.getOnlineDevices(WebSocketPort)
@@ -100,8 +107,17 @@ class WebSocketWorker(context: Context, workerParams: WorkerParameters) :
             Log.e(tag, "WebSocket 连接超时")
             Result.failure()
         } catch (e: Exception) {
-            Log.e(tag, "WebSocket 连接失败", e)
-            Result.retry()
+            if (currentRetryCount >= MAX_RETRY_COUNT) {
+                Result.failure() // 超过最大重试次数直接失败
+            } else {
+                val outputData = Data.Builder()
+                    .putInt(KEY_RETRY_COUNT, currentRetryCount + 1)
+                    .build()
+
+                setProgressAsync(outputData) // 更新重试进度
+                Log.e(tag, "WebSocket 连接失败", e)
+                Result.retry()
+            }
         }
     }
 
@@ -132,7 +148,7 @@ class WebSocketWorker(context: Context, workerParams: WorkerParameters) :
                             ) {
                                 Log.d(tag, "WebSocket 连接成功: $serverUrl")
                                 webSocketRefs[index].set(webSocket)
-                                message?.let { webSocket.send(it) }
+                                message.let { webSocket.send(it) }
                                 connectionResult.complete(webSocket)
                                 startConnectionTimeout(webSocket)
                             }
