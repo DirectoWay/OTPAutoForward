@@ -17,7 +17,15 @@
         <item
             android:id="@+id/nav_settings"
             android:icon="@drawable/baseline_settings_24"
+            android:iconTint="@color/black"
+            android:textColor="@color/black"
             android:title="设置"
+            tools:ignore="HardcodedText" />
+
+        <item
+            android:id="@+id/nav_feedback"
+            android:icon="@drawable/baseline_question_mark_24"
+            android:title="问题反馈"
             tools:ignore="HardcodedText" />
     </group>
 </menu>

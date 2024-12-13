@@ -12,6 +12,7 @@
     <ItemGroup>
       <PackageReference Include="Autofac" Version="8.1.1" />
       <PackageReference Include="Autofac.Extensions.DependencyInjection" Version="10.0.0" />
+      <PackageReference Include="FontAwesome.Sharp.Pro" Version="6.6.0" />
       <PackageReference Include="Hardcodet.NotifyIcon.Wpf" Version="2.0.1" />
       <PackageReference Include="Microsoft.Data.Sqlite" Version="9.0.0" />
       <PackageReference Include="Microsoft.Extensions.Configuration" Version="9.0.0" />

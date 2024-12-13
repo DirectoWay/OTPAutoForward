@@ -10,4 +10,14 @@ public class AppSettings
 
     /** 验证 WebSocket 请求头中时间戳的超时时间 默认为 600 秒 */
     public int WebSocketVerifyTimeout { get; init; } = 600;
+
+    /** 在 appsettings.json中没有配置用户反馈地址的时候 默认返回一个不为空的地址 */
+    private readonly string _feedbackUrl = "https://gitee.com/dashboard";
+
+    /** 用户反馈的 Url 地址 */
+    public string FeedbackUrl
+    {
+        get => string.IsNullOrWhiteSpace(_feedbackUrl) ? "https://gitee.com/dashboard" : _feedbackUrl;
+        init => _feedbackUrl = value;
+    }
 }

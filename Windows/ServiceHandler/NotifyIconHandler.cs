@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Windows.Forms;
 using Microsoft.Win32;
+using FontAwesome.Sharp;
 
 namespace WinCAPTCHA.ServiceHandler;
 
@@ -29,7 +30,7 @@ public class NotifyIconHandler
         // 初始化托盘图标
         _notifyIcon = new NotifyIcon
         {
-            Icon = new Icon(_iconPath),
+            Icon = new System.Drawing.Icon(_iconPath),
             Visible = true,
             Text = _appName
         };
@@ -45,6 +46,7 @@ public class NotifyIconHandler
         var contextMenu = new ContextMenuStrip();
 
         var autoStartItem = new ToolStripMenuItem("开机自启动");
+
         autoStartItem.CheckOnClick = true;
         autoStartItem.Checked = CheckAutoStartEnabled(); // 默认勾选状态
         autoStartItem.CheckedChanged += (_, _) =>
@@ -60,16 +62,26 @@ public class NotifyIconHandler
         };
         contextMenu.Items.Add(autoStartItem);
 
-        contextMenu.Items.Add("显示短信效果", null, (_, _) => MainWindow.ShowToastNotification(testMessage));
-        contextMenu.Items.Add("显示主界面", null, (_, _) => _onRestoreWindow());
+        contextMenu.Items.Add(new ToolStripMenuItem("问题反馈",
+            IconChar.Question.ToBitmap(IconFont.Solid, 16, Color.Black),
+            (_, _) => FeedbackHandler.OpenFeedbackUrl()));
+
+        contextMenu.Items.Add(new ToolStripMenuItem("显示短信效果",
+            IconChar.Comment.ToBitmap(IconFont.Regular, 16, Color.Black),
+            (_, _) => MainWindow.ShowToastNotification(testMessage)));
+
+        contextMenu.Items.Add(new ToolStripMenuItem("显示主界面",
+            IconChar.WindowRestore.ToBitmap(IconFont.Auto, 16, Color.Black),
+            (_, _) => _onRestoreWindow()));
 
         contextMenu.Items.Add(new ToolStripSeparator()); // 分隔符
 
-        contextMenu.Items.Add("退出", null, (_, _) =>
-        {
-            _notifyIcon.Visible = false; // 移除托盘图标
-            _onExitApplication();
-        });
+        contextMenu.Items.Add(new ToolStripMenuItem("退出",
+            IconChar.ArrowRightFromBracket.ToBitmap(IconFont.Auto, 16, Color.Black), (_, _) =>
+            {
+                _notifyIcon.Visible = false; // 移除托盘图标
+                _onExitApplication();
+            }));
 
         _notifyIcon.ContextMenuStrip = contextMenu;
     }

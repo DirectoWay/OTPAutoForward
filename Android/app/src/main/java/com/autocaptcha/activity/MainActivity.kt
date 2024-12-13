@@ -21,9 +21,13 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import android.Manifest
+import android.net.Uri
 import android.os.Build
 import androidx.annotation.RequiresApi
+import androidx.appcompat.app.AlertDialog
+import androidx.core.view.GravityCompat
 import androidx.lifecycle.ViewModelProvider
+import androidx.navigation.ui.NavigationUI
 import com.autocaptcha.viewmodel.DevicePairViewModel
 import com.autocaptcha.R
 import com.autocaptcha.databinding.ActivityMainBinding
@@ -75,6 +79,25 @@ class MainActivity : AppCompatActivity() {
 
         // 检查并请求短信权限
         checkAndRequestSmsPermission()
+
+        // 导航栏中 "问题反馈" item 处理逻辑
+        navView.setNavigationItemSelectedListener { menuItem ->
+            when (menuItem.itemId) {
+                R.id.nav_feedback -> {
+                    openFeedbackUrl()
+                    // 跳转至浏览器后关闭导航抽屉
+                    drawerLayout.closeDrawer(GravityCompat.START)
+                    true
+                }
+
+                else -> {
+                    NavigationUI.onNavDestinationSelected(
+                        menuItem,
+                        navController
+                    ) || super.onOptionsItemSelected(menuItem)
+                }
+            }
+        }
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
@@ -137,6 +160,20 @@ class MainActivity : AppCompatActivity() {
                 Log.d("SMS", "短信权限获取失败")
             }
         }
+    }
+
+    /** 跳转至问题反馈页面 */
+    private fun openFeedbackUrl() {
+        AlertDialog.Builder(this).setTitle("打开外部浏览器")
+            .setMessage("即将跳转至反馈页面?")
+            .setPositiveButton("确定") { _, _ ->
+                val intent = Intent(
+                    Intent.ACTION_VIEW,
+                    Uri.parse("https://shimo.im/forms/25q5X4Wl48fWJQ3D/fill")
+                )
+                startActivity(intent)
+            }.setNegativeButton("取消") { dialog, _ -> dialog.dismiss() }.show()
+
     }
 
     override fun onDestroy() {
