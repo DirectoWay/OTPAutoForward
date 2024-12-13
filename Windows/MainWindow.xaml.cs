@@ -2,13 +2,8 @@
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
-using System.Net;
-using System.Net.NetworkInformation;
 using System.Text.RegularExpressions;
-using System.Threading;
-using System.Threading.Tasks;
 using System.Windows;
-using Windows.UI.Notifications;
 using Microsoft.Toolkit.Uwp.Notifications;
 using WinCAPTCHA.ServiceHandler;
 using Clipboard = System.Windows.Clipboard;
@@ -20,88 +15,14 @@ namespace WinCAPTCHA;
 /// </summary>
 public partial class MainWindow
 {
-    private readonly WebSocketHandler _webSocketHandler = new();
+    private readonly WebSocketHandler _webSocketHandler;
 
-    /** WebSocket 服务 IP 地址*/
-    private readonly IPAddress _ipAddress = ConnectInfoHandler.GetLocalIP();
-
-    /** WebSocket 服务端口 */
-    private const string Port = "9224";
-
-    /** 短信订阅标志 */
-    private int _isEventSubscribed;
-
-    public MainWindow()
+    public MainWindow(WebSocketHandler webSocketHandler)
     {
         InitializeComponent();
         ToastNotificationManagerCompat.OnActivated += OnToastActivated;
-
-        var portStatus = CheckWebSocketPort(int.Parse(Port));
-        if (portStatus)
-        {
-            StartWebSocketServer();
-        }
-        else
-        {
-            ShowPortInUseNotification();
-            Task.Delay(3000).ContinueWith(_ => Application.Current.Dispatcher.Invoke(Application.Current.Shutdown));
-        }
-    }
-
-    ///<summary>
-    /// 检查 9224 端口是否已经被占用
-    /// </summary>
-    /// <returns>true 代表着端口可用</returns>
-    private static bool CheckWebSocketPort(int port)
-    {
-        var isAvailable = true;
-
-        try
-        {
-            // 检查 TCP 端口
-            var tcpListeners = IPGlobalProperties.GetIPGlobalProperties()
-                .GetActiveTcpListeners();
-            if (tcpListeners.Any(t => t.Port == port))
-            {
-                isAvailable = false;
-            }
-
-            // 检查 UDP 端口
-            var udpListeners = IPGlobalProperties.GetIPGlobalProperties()
-                .GetActiveUdpListeners();
-            if (udpListeners.Any(u => u.Port == port))
-            {
-                isAvailable = false;
-            }
-
-            return isAvailable;
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"端口检测异常：{ex.Message}");
-            return false;
-        }
-    }
-
-    /** 9224 端口被占用时弹出 Toast 弹窗提示用户 */
-    private static void ShowPortInUseNotification()
-    {
-        var content = new ToastContentBuilder()
-            .AddText($"端口 {Port} 已被占用，程序将于 3 秒后关闭。")
-            .GetToastContent();
-
-        var notification = new ToastNotification(content.GetXml());
-        ToastNotificationManagerCompat.CreateToastNotifier().Show(notification);
-    }
-
-    private async void StartWebSocketServer()
-    {
-        if (Interlocked.CompareExchange(ref _isEventSubscribed, 1, 0) == 0)
-        {
-            _webSocketHandler.OnMessageReceived += ShowToastNotification;
-        }
-
-        await _webSocketHandler.StartWebSocketServer(_ipAddress, Port);
+        _webSocketHandler = webSocketHandler;
+        _webSocketHandler.OnMessageReceived += ShowToastNotification;
     }
 
     protected override void OnStateChanged(EventArgs e)
@@ -229,8 +150,8 @@ public partial class MainWindow
     /** 配对按钮: 获取配对用的二维码 */
     private void GetQRCode(object sender, RoutedEventArgs e)
     {
-        var qrData = QRCodeHandler.GenerateEncryptedQRCode(_ipAddress, Port);
-        var qrCodeImage = QRCodeHandler.GenerateQrCodeImage(qrData, 300, 300);
+        var qrData = QRCodeHandler.GenerateEncryptedQRCode();
+        var qrCodeImage = QRCodeHandler.GenerateQrCodeImage(qrData, 500, 500);
 
         QrCodeImage.Source = qrCodeImage;
         QrCodeImage.Visibility = Visibility.Visible;

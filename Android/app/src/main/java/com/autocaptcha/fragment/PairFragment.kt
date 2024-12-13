@@ -179,8 +179,6 @@ class PairFragment : Fragment() {
             context.applicationContext.getSharedPreferences("KnownDevices", Context.MODE_PRIVATE)
         val editor = sharedPreferences.edit()
         val deviceInfo = JSONObject().apply {
-            put("deviceIP", pairedDeviceInfo.deviceIP)
-            put("webSocketPort", pairedDeviceInfo.webSocketPort)
             put("deviceName", pairedDeviceInfo.deviceName)
             put("deviceId", pairedDeviceInfo.deviceId)
             put("deviceType", pairedDeviceInfo.deviceType)

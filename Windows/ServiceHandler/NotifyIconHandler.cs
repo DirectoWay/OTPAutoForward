@@ -15,21 +15,21 @@ public class NotifyIconHandler
     private Action _onRestoreWindow = default!;
     private Action _onExitApplication = default!;
     private readonly string _appName = App.AppSettings.AppName;
+    private readonly string _iconPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "sms.ico");
 
     public void Initialize(Action onRestoreWindow, Action onExitApplication)
     {
         _onRestoreWindow = onRestoreWindow;
         _onExitApplication = onExitApplication;
-        var iconPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "sms.ico");
-        if (!File.Exists(iconPath))
+        if (!File.Exists(_iconPath))
         {
-            throw new FileNotFoundException($"无法找到托盘图标 '{iconPath}'.");
+            throw new FileNotFoundException($"无法找到托盘图标 '{_iconPath}'.");
         }
 
         // 初始化托盘图标
         _notifyIcon = new NotifyIcon
         {
-            Icon = new Icon(iconPath),
+            Icon = new Icon(_iconPath),
             Visible = true,
             Text = _appName
         };
@@ -166,9 +166,19 @@ public class NotifyIconHandler
         }
     }
 
+    public void ShowNotification(int timeout, string title, string message, ToolTipIcon icon)
+    {
+        _notifyIcon.Visible = true;
+        _notifyIcon.BalloonTipTitle = title;
+        _notifyIcon.BalloonTipText = message;
+        _notifyIcon.BalloonTipIcon = icon;
+        _notifyIcon.ShowBalloonTip(timeout);
+    }
+
+    /** 释放托盘图标资源 */
     public void Dispose()
     {
         _notifyIcon.Visible = false;
-        _notifyIcon.Dispose(); // 释放托盘图标资源 
+        _notifyIcon.Dispose();
     }
 }

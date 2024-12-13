@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Drawing;
 using System.IO;
-using System.Net;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -43,13 +42,11 @@ public static class QRCodeHandler
     }
 
     /** 生成加密后的二维码内容 */
-    public static string GenerateEncryptedQRCode(IPAddress ipAddress, string port)
+    public static string GenerateEncryptedQRCode()
     {
         // 创建配对信息
         var pairingInfo = new
         {
-            deviceIP = ipAddress.ToString(),
-            webSocketPort = port,
             deviceName = Environment.MachineName,
             deviceId = ConnectInfoHandler.GetDeviceID(),
             deviceType = ConnectInfoHandler.GetDeviceType(),

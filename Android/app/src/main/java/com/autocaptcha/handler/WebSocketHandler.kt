@@ -302,8 +302,6 @@ class WebSocketHandler {
                 try {
                     val deviceInfo = JSONObject(deviceInfoString)
                     val pairingInfo = PairedDeviceInfo(
-                        deviceIP = deviceInfo.getString("deviceIP"),
-                        webSocketPort = deviceInfo.getString("webSocketPort"),
                         deviceName = deviceInfo.getString("deviceName"),
                         deviceId = deviceInfo.getString("deviceId"),
                         deviceType = deviceInfo.getString("deviceType"),

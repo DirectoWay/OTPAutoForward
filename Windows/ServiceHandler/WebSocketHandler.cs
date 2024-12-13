@@ -14,6 +14,12 @@ public class WebSocketHandler
 {
     private HttpListener? _httpListener;
 
+    /** WebSocket 服务的 IP 地址 */
+    private readonly IPAddress _ipAddress = ConnectInfoHandler.GetLocalIP();
+
+    /** WebSocket 服务的端口号 */
+    private readonly int _port = App.AppSettings.WebSocketPort;
+
     /** WebSocket 请求头自定义字段 */
     private const string WebSocketHeaderField = "X-WinCAPTCHA-Auth";
 
@@ -31,21 +37,21 @@ public class WebSocketHandler
 
 
     /** WebSocket 服务监听与保活 */
-    private async Task MonitorWebSocketServer(IPAddress ipAddress, string port)
+    private async Task MonitorWebSocketServer()
     {
         while (true)
         {
             if (_httpListener is not { IsListening: true })
             {
                 Console.WriteLine("WebSocket 服务停止，尝试重新启动...");
-                await StartWebSocketServer(ipAddress, port);
+                await StartWebSocketServer();
             }
 
             await Task.Delay(3600000); // 检查间隔
         }
     }
 
-    public async Task StartWebSocketServer(IPAddress ipAddress, string port)
+    public async Task StartWebSocketServer()
     {
         if (_httpListener != null)
         {
@@ -59,12 +65,12 @@ public class WebSocketHandler
             if (_httpListener == null) // 防止并发初始化
             {
                 _httpListener = new HttpListener();
-                _httpListener.Prefixes.Add($"http://{ipAddress}:{port}/");
+                _httpListener.Prefixes.Add($"http://{_ipAddress}:{_port}/");
 
                 _httpListener.Start();
-                Console.WriteLine($"WebSocket 服务器已启动 - IP地址: {ipAddress},监听端口: {port}");
+                Console.WriteLine($"WebSocket 服务器已启动 - IP地址: {_ipAddress},监听端口: {_port}");
 
-                _ = MonitorWebSocketServer(ipAddress, port);
+                _ = MonitorWebSocketServer();
                 _ = AcceptWebSocketClientsAsync();
             }
         }
