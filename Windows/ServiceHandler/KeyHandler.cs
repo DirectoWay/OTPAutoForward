@@ -18,69 +18,72 @@ public static class KeyHandler
     /** 存储密钥对的表名 */
     private const string TableName = "RSAKeys";
 
+    /** Win 端的固定公钥 */
+    public static readonly string WindowsPublicKey;
+
+    /** RSA加密对象, 包含公钥和私钥 */
+    private static readonly RSA Rsa = RSA.Create();
+
     static KeyHandler()
     {
-        // 初始化数据库
-        if (File.Exists(DatabasePath)) return;
-
-        using var connection = new SqliteConnection($"Data Source={DatabasePath}");
-        connection.Open();
-        var createTableCommand = new SqliteCommand(
-            $@"CREATE TABLE IF NOT EXISTS {TableName} (
-                        Id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        PublicKey TEXT NOT NULL,
-                        PrivateKey BLOB NOT NULL
-                    )",
-            connection
-        );
-        createTableCommand.ExecuteNonQuery();
+        var rsaKeys = LoadRSAKeys();
+        WindowsPublicKey = rsaKeys.PublicKey;
+        Rsa.ImportRSAPrivateKey(rsaKeys.PrivateKey, out _); // 导入私钥到 RSA 加密对象
+        Console.WriteLine("密钥对已初始化");
     }
 
-    /** 保存公钥和私钥到本地数据库 */
-    public static void SaveRSAKeys(string publicKey, byte[] privateKey)
+    /// <summary>
+    /// 从数据库加载公钥和私钥 密钥对不存在时则生成新密钥对
+    /// </summary>
+    /// <returns>string 类型的公钥和 byte[] 类型的私钥</returns>
+    private static (string PublicKey, byte[] PrivateKey) LoadRSAKeys()
     {
-        // 加密公钥和私钥
-        var encryptedPublicKey = EncryptString(publicKey);
-        var encryptedPrivateKey = EncryptBytes(privateKey);
+        // 检查数据库文件和数据表是否已经存在
+        if (!File.Exists(DatabasePath))
+        {
+            using var connection = new SqliteConnection($"Data Source={DatabasePath}");
+            connection.Open();
+            var createTableCommand =
+                new SqliteCommand(
+                    $"CREATE TABLE IF NOT EXISTS {TableName} ( Id INTEGER PRIMARY KEY AUTOINCREMENT, PublicKey TEXT NOT NULL, PrivateKey BLOB NOT NULL )",
+                    connection);
+            createTableCommand.ExecuteNonQuery();
+        }
 
-        using var connection = new SqliteConnection($"Data Source={DatabasePath}");
-        connection.Open();
+        using var selectConnection = new SqliteConnection($"Data Source={DatabasePath}");
+        selectConnection.Open();
+
+        // 检查密钥对是否已经存在
+        var selectCommand =
+            new SqliteCommand($"SELECT PublicKey, PrivateKey FROM {TableName} LIMIT 1", selectConnection);
+        using var reader = selectCommand.ExecuteReader();
+        // 读取密钥对并解密
+        if (reader.Read())
+        {
+            var encryptedPublicKey = reader.GetString(0);
+            var encryptedPrivateKey = (byte[])reader["PrivateKey"];
+            var publicKey = DecryptString(encryptedPublicKey);
+            var privateKey = DecryptBytes(encryptedPrivateKey);
+            return (publicKey, privateKey);
+        }
+
+        // 如果密钥对不存在时生成新的密钥对
+        var rsa = new RSACryptoServiceProvider();
+        var newPublicKey = Convert.ToBase64String(rsa.ExportSubjectPublicKeyInfo());
+        var newPrivateKey = rsa.ExportRSAPrivateKey();
+
+        // 保存加密后的密钥对
+        var encryptedNewPublicKey = EncryptString(newPublicKey);
+        var encryptedNewPrivateKey = EncryptBytes(newPrivateKey);
         var insertCommand = new SqliteCommand(
             $"INSERT INTO {TableName} (PublicKey, PrivateKey) VALUES (@PublicKey, @PrivateKey)",
-            connection);
-        insertCommand.Parameters.AddWithValue("@PublicKey", encryptedPublicKey);
-        insertCommand.Parameters.AddWithValue("@PrivateKey", encryptedPrivateKey);
-        insertCommand.ExecuteNonQuery();
-    }
-
-    /** 从数据库加载公钥和私钥 */
-    public static (string? PublicKey, byte[]? PrivateKey) LoadRSAKeys()
-    {
-        using var connection = new SqliteConnection($"Data Source={DatabasePath}");
-        connection.Open();
-        var selectCommand = new SqliteCommand($"SELECT PublicKey, PrivateKey FROM {TableName} LIMIT 1", connection);
-        using var reader = selectCommand.ExecuteReader();
-        if (!reader.Read()) return (null, null); // 密钥对不存在
-
-        var encryptedPublicKey = reader.GetString(0);
-        var encryptedPrivateKey = reader.GetFieldValue<byte[]>(1);
-
-        // 解密公钥和私钥
-        var publicKey = DecryptString(encryptedPublicKey);
-        var privateKey = DecryptBytes(encryptedPrivateKey);
-        return (publicKey, privateKey);
-    }
-
-    /** 检查公钥和私钥是否已经存在 */
-    public static bool CheckRSAKeys()
-    {
-        using var connection = new SqliteConnection($"Data Source={DatabasePath}");
-        connection.Open();
-        var countCommand = new SqliteCommand(
-            $"SELECT COUNT(*) FROM {TableName}",
-            connection
+            selectConnection
         );
-        return Convert.ToInt32(countCommand.ExecuteScalar()) > 0;
+        insertCommand.Parameters.AddWithValue("@PublicKey", encryptedNewPublicKey);
+        insertCommand.Parameters.AddWithValue("@PrivateKey", encryptedNewPrivateKey);
+        insertCommand.ExecuteNonQuery();
+
+        return (newPublicKey, newPrivateKey);
     }
 
     /** 删除数据库中的公钥和私钥 */
@@ -200,5 +203,17 @@ public static class KeyHandler
             Console.WriteLine($"解密失败: {ex.Message}");
             throw;
         }
+    }
+
+    /// <summary>
+    /// 使用私钥进行签名
+    /// </summary>
+    /// <param name="data">需要进行签名的内容</param>
+    /// <returns>经过 Base64 编码的 string 数据</returns>
+    public static string SignData(string data)
+    {
+        var dataBytes = Encoding.UTF8.GetBytes(data);
+        var signedBytes = Rsa.SignData(dataBytes, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+        return Convert.ToBase64String(signedBytes);
     }
 }

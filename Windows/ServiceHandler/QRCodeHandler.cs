@@ -1,8 +1,6 @@
 ﻿using System;
 using System.Drawing;
 using System.IO;
-using System.Security.Cryptography;
-using System.Text;
 using System.Text.Json;
 using System.Windows.Media.Imaging;
 using ZXing;
@@ -15,32 +13,6 @@ namespace WinCAPTCHA.ServiceHandler;
 ///  </summary>
 public static class QRCodeHandler
 {
-    /** Win 端的固定公钥 */
-    private static readonly string? WindowsPublicKey;
-
-    /** RSA加密对象, 包含公钥和私钥 */
-    private static readonly RSA Rsa = RSA.Create();
-
-    static QRCodeHandler()
-    {
-        byte[]? windowsPrivateKey;
-        if (KeyHandler.CheckRSAKeys())
-        {
-            var rsaKeys = KeyHandler.LoadRSAKeys();
-            WindowsPublicKey = rsaKeys.PublicKey;
-            windowsPrivateKey = rsaKeys.PrivateKey;
-            Rsa.ImportRSAPrivateKey(windowsPrivateKey, out _); // 往 RSA 加密对象中导入私钥
-            Console.WriteLine("密钥已初始化");
-        }
-        else
-        {
-            // 若本地没有密钥对, 则生成新的密钥对并保存
-            WindowsPublicKey = Convert.ToBase64String(Rsa.ExportSubjectPublicKeyInfo());
-            windowsPrivateKey = Rsa.ExportRSAPrivateKey();
-            KeyHandler.SaveRSAKeys(WindowsPublicKey, windowsPrivateKey);
-        }
-    }
-
     /** 生成加密后的二维码内容 */
     public static string GenerateEncryptedQRCode()
     {
@@ -50,24 +22,16 @@ public static class QRCodeHandler
             deviceName = Environment.MachineName,
             deviceId = ConnectInfoHandler.GetDeviceID(),
             deviceType = ConnectInfoHandler.GetDeviceType(),
-            windowsPublicKey = WindowsPublicKey // Win 端的公钥
+            windowsPublicKey = KeyHandler.WindowsPublicKey // Win 端的公钥
         };
         var pairingInfoJson = JsonSerializer.Serialize(pairingInfo);
 
         // 加密配对信息
         var encryptedPairingInfo = KeyHandler.EncryptString(pairingInfoJson);
-        var signature = SignData(encryptedPairingInfo, Rsa);
+        var signature = KeyHandler.SignData(pairingInfoJson);
         var qrContent = $"{encryptedPairingInfo}.{signature}"; // 合并加密内容和签名
 
         return qrContent;
-    }
-
-    /** 签名加密后的配对信息 */
-    private static string SignData(string data, RSA rsa)
-    {
-        var dataBytes = Encoding.UTF8.GetBytes(data);
-        var signedBytes = rsa.SignData(dataBytes, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
-        return Convert.ToBase64String(signedBytes);
     }
 
     /** 生成二维码图像 */

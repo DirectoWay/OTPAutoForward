@@ -31,11 +31,9 @@ import androidx.lifecycle.ViewModelProvider
 import com.autocaptcha.R
 import com.autocaptcha.databinding.FragmentPairBinding
 import com.autocaptcha.activity.CaptureQRCodeActivity
-import com.autocaptcha.dataclass.PairedDeviceInfo
 import com.autocaptcha.handler.DeviceHandler
 import com.autocaptcha.handler.QRCodeHandler
 import com.autocaptcha.viewmodel.DevicePairViewModel
-import org.json.JSONObject
 import java.net.Inet4Address
 
 class PairFragment : Fragment() {
@@ -124,7 +122,7 @@ class PairFragment : Fragment() {
             pairingInfo?.let {
                 try {
                     // 保存配对信息并刷新页面
-                    saveDeviceInfo(requireContext(), pairingInfo)
+                    qrCodeHandler.saveDeviceInfo(requireContext().applicationContext, pairingInfo)
                     Handler(Looper.getMainLooper()).postDelayed({
                         devicePairViewModel.refreshPairedDevice.value = Unit
                     }, 100)
@@ -165,29 +163,6 @@ class PairFragment : Fragment() {
         return null
     }
 
-    private fun startSmsService() {
-
-    }
-
-    private fun stopSmsService() {
-
-    }
-
-    /** 记录已经匹配成功过的设备 */
-    private fun saveDeviceInfo(context: Context, pairedDeviceInfo: PairedDeviceInfo) {
-        val sharedPreferences =
-            context.applicationContext.getSharedPreferences("KnownDevices", Context.MODE_PRIVATE)
-        val editor = sharedPreferences.edit()
-        val deviceInfo = JSONObject().apply {
-            put("deviceName", pairedDeviceInfo.deviceName)
-            put("deviceId", pairedDeviceInfo.deviceId)
-            put("deviceType", pairedDeviceInfo.deviceType)
-            put("windowsPublicKey", pairedDeviceInfo.windowsPublicKey)
-        }
-        editor.putString(pairedDeviceInfo.deviceId, deviceInfo.toString())
-        editor.apply()
-    }
-
     /** 刷新已配对的设备 */
     private fun refreshPairedDevice() {
         val deviceHandler = DeviceHandler(binding.layoutPairedDeviceInfo)
@@ -209,11 +184,9 @@ class PairFragment : Fragment() {
             if (isChecked) {
                 expandAnimation()
                 devicePairViewModel.updateSmsEnabled(true)
-                startSmsService()
             } else {
                 collapseAnimation()
                 devicePairViewModel.updateSmsEnabled(false)
-                stopSmsService()
             }
         }
     }

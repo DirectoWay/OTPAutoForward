@@ -97,7 +97,7 @@ public class WebSocketHandler
                 if (VerifyWebSocketHeader(context.Request.Headers))
                 {
                     var webSocketContext = await context.AcceptWebSocketAsync(null);
-                    _ = HandleWebSocketConnectionAsync(webSocketContext.WebSocket);
+                    await HandleWebSocketConnectionAsync(webSocketContext.WebSocket);
                 }
                 else
                 {
@@ -184,6 +184,11 @@ public class WebSocketHandler
         var buffer = new byte[1024];
         try
         {
+            // 往 App 端发送 Win 端的身份验证信息
+            var verifyInfo = GenerateWebsocketVerifyInfo();
+            await webSocket.SendAsync(new ArraySegment<byte>(verifyInfo), WebSocketMessageType.Text, true,
+                CancellationToken.None);
+
             while (webSocket.State == WebSocketState.Open)
             {
                 var result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
@@ -245,6 +250,17 @@ public class WebSocketHandler
             webSocket.Dispose();
             Console.WriteLine("WebSocket 连接已关闭");
         }
+    }
+
+    /** 生成 Win 端的身份验证信息, 可让 App 端验证 */
+    private static byte[] GenerateWebsocketVerifyInfo()
+    {
+        // 获取设备 ID 并加密
+        var deviceId = ConnectInfoHandler.GetDeviceID();
+        var encryptedText = KeyHandler.EncryptString(ConnectInfoHandler.GetDeviceID());
+        var signature = KeyHandler.SignData(deviceId);
+
+        return Encoding.UTF8.GetBytes("verification" + "." + encryptedText + "." + signature);
     }
 
     public async Task StopWebSocketServer()

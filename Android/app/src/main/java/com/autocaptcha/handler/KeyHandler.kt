@@ -1,9 +1,10 @@
 package com.autocaptcha.handler
 
 import android.util.Base64
+import android.util.Log
 import java.util.Base64 as JavaBase64
 import java.security.KeyFactory
-import java.security.KeyPairGenerator
+import java.security.Signature
 import java.security.spec.X509EncodedKeySpec
 import javax.crypto.Cipher
 import javax.crypto.spec.IvParameterSpec
@@ -15,36 +16,20 @@ object AESKey {
 }
 
 class KeyHandler {
-    // 生成Android端的临时密钥对
-    fun generateTempKeyPair(): Pair<String, String> {
-        val keyPairGenerator = KeyPairGenerator.getInstance("RSA")
-        keyPairGenerator.initialize(2048)
-        val keyPair = keyPairGenerator.generateKeyPair()
-        val publicKey = Base64.encodeToString(keyPair.public.encoded, Base64.DEFAULT)
-        val privateKey = Base64.encodeToString(keyPair.private.encoded, Base64.DEFAULT)
-        return Pair(publicKey, privateKey)
-    }
-
-    // 加密信息
-    fun encryptMessage(message: String, publicKey: String): String {
-        val keySpec = X509EncodedKeySpec(Base64.decode(publicKey, Base64.DEFAULT))
-        val keyFactory = KeyFactory.getInstance("RSA")
-        val key = keyFactory.generatePublic(keySpec)
-        val cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding")
-        cipher.init(Cipher.ENCRYPT_MODE, key)
-        val encryptedData = cipher.doFinal(message.toByteArray())
-        return Base64.encodeToString(encryptedData, Base64.DEFAULT)
-    }
-
-    // 解密信息
-    fun decryptMessage(encryptedMessage: String, privateKey: String): String {
-        val keySpec = X509EncodedKeySpec(Base64.decode(privateKey, Base64.DEFAULT))
-        val keyFactory = KeyFactory.getInstance("RSA")
-        val key = keyFactory.generatePrivate(keySpec)
-        val cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding")
-        cipher.init(Cipher.DECRYPT_MODE, key)
-        val decryptedData = cipher.doFinal(Base64.decode(encryptedMessage, Base64.DEFAULT))
-        return String(decryptedData)
+    /** 对称加密的解密方法 */
+    fun decryptString(encrypted: String): String? {
+        return try {
+            val secretKey = SecretKeySpec(AESKey.KEY.toByteArray(), "AES")
+            val cipher = Cipher.getInstance("AES/CBC/PKCS7Padding")
+            val ivSpec = IvParameterSpec(ByteArray(16)) // 全零向量
+            cipher.init(Cipher.DECRYPT_MODE, secretKey, ivSpec)
+            val decodedBytes = Base64.decode(encrypted, Base64.DEFAULT)
+            val originalBytes = cipher.doFinal(decodedBytes)
+            String(originalBytes)
+        } catch (e: Exception) {
+            Log.e("KeyHandler", "解密失败", e)
+            null
+        }
     }
 
     /** 对称加密方法 */
@@ -58,6 +43,37 @@ class KeyHandler {
         val encryptedBytes = cipher.doFinal(plainText.toByteArray(Charsets.UTF_8))
 
         return JavaBase64.getEncoder().encodeToString(encryptedBytes)
+    }
+
+    /** 使用公钥验证签名 */
+    fun verifySignature(data: String, signature: String, publicKey: String): Boolean {
+        return try {
+            // 解析公钥
+            val keyBytes = Base64.decode(publicKey, Base64.DEFAULT)
+            val spec = X509EncodedKeySpec(keyBytes)
+            val keyFactory = KeyFactory.getInstance("RSA")
+            val pubKey = keyFactory.generatePublic(spec)
+
+            // 初始化签名验证
+            val sig = Signature.getInstance("SHA256withRSA")
+            sig.initVerify(pubKey)
+            sig.update(data.toByteArray(Charsets.UTF_8))
+
+            // 验证签名
+            val signatureBytes = Base64.decode(signature, Base64.DEFAULT)
+            val result = sig.verify(signatureBytes)
+
+            if (!result) {
+                Log.e(
+                    "KeyHandler", "签名验证失败: 数据 = $data, 签名 = $signature, 公钥 = $publicKey"
+                )
+            }
+
+            result
+        } catch (e: Exception) {
+            Log.e("KeyHandler", "签名验证过程中出错", e)
+            false
+        }
     }
 }
 

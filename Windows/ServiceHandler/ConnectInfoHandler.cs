@@ -92,7 +92,7 @@ public static class ConnectInfoHandler
     }
 
     /** 获取本设备的 ID */
-    public static string? GetDeviceID()
+    public static string GetDeviceID()
     {
         var uniqueId = "Unknown";
         try
@@ -103,6 +103,8 @@ public static class ConnectInfoHandler
                 var obj = (ManagementObject)o;
                 uniqueId = obj["UUID"].ToString();
             }
+
+            uniqueId ??= "Unknown";
         }
         catch (Exception ex)
         {

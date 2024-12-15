@@ -15,7 +15,7 @@ class DeviceHandler(private val container: LinearLayout) {
     private var webSocketHandler: WebSocketHandler = WebSocketHandler()
 
     fun getDeviceInfo(context: Context): List<DisplayDeviceInfo> {
-        val allDevicesInfo = webSocketHandler.getAllDevicesInfo(context)
+        val allDevicesInfo = webSocketHandler.getAllDevicesInfo(context.applicationContext)
 
         return allDevicesInfo.map { pairingInfo ->
             DisplayDeviceInfo(

@@ -29,14 +29,15 @@ import okhttp3.WebSocket
 import okhttp3.WebSocketListener
 import org.json.JSONException
 import org.json.JSONObject
-import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.AtomicReference
 import java.io.IOException
 import java.net.Inet4Address
 import java.net.InetSocketAddress
 import java.net.NetworkInterface
 import java.net.Socket
 import java.net.SocketException
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicReference
+
 
 /** Win 端提供 WebSocket 服务的端口号 */
 private const val WebSocketPort = 9224
@@ -58,7 +59,6 @@ const val KEY_RETRY_COUNT = "retry_count"
 
 /** WorkManager 操作异常后最大的重试次数 */
 const val MAX_RETRY_COUNT = 3
-
 
 /** 为 WebSocket 连接时提供工具方法 */
 class WebSocketWorker(context: Context, workerParams: WorkerParameters) :
@@ -85,7 +85,6 @@ class WebSocketWorker(context: Context, workerParams: WorkerParameters) :
     }
 
     override suspend fun doWork(): Result {
-        val appContext = applicationContext
         val currentRetryCount = inputData.getInt(KEY_RETRY_COUNT, 0)
         var message = inputData.getString(KEY_MESSAGE)
         return try {
@@ -148,13 +147,25 @@ class WebSocketWorker(context: Context, workerParams: WorkerParameters) :
                             ) {
                                 Log.d(tag, "WebSocket 连接成功: $serverUrl")
                                 webSocketRefs[index].set(webSocket)
-                                message.let { webSocket.send(it) }
+
+                                // 等待 Win 端传递他自己的身份信息
                                 connectionResult.complete(webSocket)
                                 startConnectionTimeout(webSocket)
                             }
 
                             override fun onMessage(webSocket: WebSocket, text: String) {
-                                Log.d(tag, "收到消息: $text 设备: $serverUrl")
+                                Log.d(tag, "WebSocket 消息: $text 设备: $serverUrl")
+
+                                // 验证 Win 端的身份
+                                if (text.contains("verification")) {
+                                    val isVerified = verifyWebSocketInfo(text)
+                                    if (isVerified == true) {
+                                        message.let { webSocket.send(it) }
+                                    } else {
+                                        Log.e(tag, "WebSocket 验证失败: 设备 $serverUrl")
+                                        webSocket.close(1000, "Win 端身份验证失败")
+                                    }
+                                }
                                 resetConnectionTimeout(webSocket)
                             }
 
@@ -208,12 +219,28 @@ class WebSocketWorker(context: Context, workerParams: WorkerParameters) :
         }
     }
 
-    /** 生成 WebSocket 请求头内容 */
+    /** 生成 WebSocket 请求头内容 用于给 Win 端验证 App 端的身份 */
     private fun generateWebSocketHeader(): String {
         val timestamp = System.currentTimeMillis() / 1000 // 精准到秒即可, 与 Win 端的时间戳格式保持一致
         val plainHeader = "$WebSocketHeaderKey+$timestamp" // 合并密钥与时间戳, 用加号进行分隔
         val cipherHeader = keyHandler.encryptString(plainHeader) // 加密请求头内容
         return cipherHeader
+    }
+
+    /** 校验 Win 端的 WebSocket验证信息 */
+    private fun verifyWebSocketInfo(verifyInfo: String): Boolean? {
+        // 分割加密内容和签名
+        val parts = verifyInfo.split(".")
+        if (parts.size != 3) return null
+
+        val encryptedText = parts[1]
+        val signature = parts[2]
+
+        // 进行验证内容解密, Win 端需要传递设备 ID
+        val deviceId = keyHandler.decryptString(encryptedText) ?: return false
+        val publicKey =
+            webSocketHandler.getWindowsPublicKey(applicationContext, deviceId) ?: return false
+        return keyHandler.verifySignature(deviceId, signature, publicKey) // 校验签名
     }
 }
 
@@ -290,8 +317,7 @@ class WebSocketHandler {
 
     /** 获取所有已配对的设备信息 */
     fun getAllDevicesInfo(context: Context): List<PairedDeviceInfo> {
-        val sharedPreferences =
-            context.applicationContext.getSharedPreferences("KnownDevices", Context.MODE_PRIVATE)
+        val sharedPreferences = context.getSharedPreferences("KnownDevices", Context.MODE_PRIVATE)
         val allDeviceIds = sharedPreferences.all.keys
         val allDevicesInfo = mutableListOf<PairedDeviceInfo>()
 
@@ -316,4 +342,17 @@ class WebSocketHandler {
 
         return allDevicesInfo
     }
+
+    /** 通过设备 ID 查询对应的公钥 */
+    fun getWindowsPublicKey(context: Context, deviceId: String): String? {
+        val sharedPreferences = context.getSharedPreferences("KnownDevices", Context.MODE_PRIVATE)
+        val deviceInfoString = sharedPreferences.getString(deviceId, null)
+        return if (deviceInfoString != null) {
+            val deviceInfo = JSONObject(deviceInfoString)
+            deviceInfo.getString("windowsPublicKey")
+        } else {
+            return null
+        }
+    }
+
 }
