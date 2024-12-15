@@ -1,4 +1,6 @@
-﻿namespace WinCAPTCHA;
+﻿using System.Collections.Generic;
+
+namespace WinCAPTCHA;
 
 public class AppSettings
 {
@@ -20,4 +22,7 @@ public class AppSettings
         get => string.IsNullOrWhiteSpace(_feedbackUrl) ? "https://gitee.com/dashboard" : _feedbackUrl;
         init => _feedbackUrl = value;
     }
+
+    /** 短信识别关键字 只有包含该关键字的短信才会被识别为验证码类型的短信 */
+    public List<string>? MessageKeyword { get; init; }
 }

@@ -75,6 +75,18 @@ public partial class MainWindow
     /** 提取短信中的关键信息 (验证码、识别码、电话号码等) */
     private static List<string> ExtractInfoFromMessage(string message)
     {
+        // 读取配置文件中的短信关键字
+        var keywordList = App.AppSettings.MessageKeyword;
+        if (keywordList != null)
+        {
+            var keywords = new HashSet<string>(keywordList);
+            // 检查短信内容是否包含验证码关键词
+            if (!keywords.Any(message.Contains))
+            {
+                return new List<string>();
+            }
+        }
+
         // 正则规则表
         var patterns = new List<string>
         {
