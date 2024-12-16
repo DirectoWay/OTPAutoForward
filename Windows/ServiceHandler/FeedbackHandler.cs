@@ -1,22 +1,23 @@
 ﻿using System;
 using System.Diagnostics;
 
-namespace WinCAPTCHA.ServiceHandler;
-
-public static class FeedbackHandler
+namespace WinCAPTCHA.ServiceHandler
 {
-    public static void OpenFeedbackUrl()
+    public static class FeedbackHandler
     {
-        try
+        public static void OpenFeedbackUrl()
         {
-            Process.Start(new ProcessStartInfo
+            try
             {
-                FileName = App.AppSettings.FeedbackUrl, UseShellExecute = true
-            });
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"URL 处理异常: {ex.Message}");
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = App.AppSettings.FeedbackUrl, UseShellExecute = true
+                });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"URL 处理异常: {ex.Message}");
+            }
         }
     }
 }

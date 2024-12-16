@@ -2,8 +2,7 @@
 
     <PropertyGroup>
         <OutputType>WinExe</OutputType>
-        <TargetFramework>net6.0-windows10.0.17763.0</TargetFramework>
-        <Nullable>enable</Nullable>
+        <TargetFramework>net472</TargetFramework>
         <UseWPF>true</UseWPF>
         <ApplicationIcon>sms.ico</ApplicationIcon>
         <ApplicationManifest>App.manifest</ApplicationManifest>
@@ -12,9 +11,10 @@
     <ItemGroup>
       <PackageReference Include="Autofac" Version="8.1.1" />
       <PackageReference Include="Autofac.Extensions.DependencyInjection" Version="10.0.0" />
+      <PackageReference Include="BouncyCastle.NetCore" Version="2.2.1" />
       <PackageReference Include="FontAwesome.Sharp.Pro" Version="6.6.0" />
       <PackageReference Include="Hardcodet.NotifyIcon.Wpf" Version="2.0.1" />
-      <PackageReference Include="Microsoft.Data.Sqlite" Version="9.0.0" />
+      <PackageReference Include="Microsoft.Data.Sqlite" Version="2.1.0" />
       <PackageReference Include="Microsoft.Extensions.Configuration" Version="9.0.0" />
       <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="9.0.0" />
       <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="9.0.0" />
