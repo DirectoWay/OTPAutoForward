@@ -24,7 +24,6 @@ namespace WinCAPTCHA.ServiceHandler
                 deviceType = ConnectInfoHandler.GetDeviceType(),
                 windowsPublicKey = KeyHandler.WindowsPublicKey // Win 端的公钥
             };
-            Console.WriteLine("二维码里的公钥" + KeyHandler.WindowsPublicKey);
             var pairingInfoJson = JsonSerializer.Serialize(pairingInfo);
 
             // 加密配对信息

@@ -26,6 +26,12 @@ namespace WinCAPTCHA.ServiceHandler
         /** WebSocket 请求头中必须包含的密钥 */
         private const string WebSocketHeaderKey = "autoCAPTCHA-encryptedKey";
 
+        /** 用于验证 WebSocket 身份的字段名称 */
+        private const string ValidationField = "verification";
+
+        /** WebSocket 消息的确认字段 */
+        private const string ConfirmedField = "confirmed";
+
         /** 控制 WebSocket 服务启动和停止时的并发访问 */
         private readonly SemaphoreSlim _startStopSemaphore = new SemaphoreSlim(1, 1);
 
@@ -203,32 +209,43 @@ namespace WinCAPTCHA.ServiceHandler
                     else
                     {
                         var message = Encoding.UTF8.GetString(buffer, 0, result.Count);
-                        message = KeyHandler.DecryptString(message); // 解密 App 端发来的消息
-                        Console.WriteLine(DateTime.Now + message);
-                        if (string.IsNullOrWhiteSpace(message))
+                        if (message.Contains("ping"))
                         {
-                            Console.WriteLine("收到空消息，忽略处理");
-                            continue;
+                            // 处理 ping 消息
+                            var pongMessage = Encoding.UTF8.GetBytes("Pong");
+                            await webSocket.SendAsync(new ArraySegment<byte>(pongMessage), WebSocketMessageType.Text,
+                                true, CancellationToken.None);
+                            Console.WriteLine($"{DateTime.Now} 发送 pong 消息");
                         }
-
-                        ReceivedMessages.Enqueue(message);
-
-                        try
+                        else
                         {
-                            OnMessageReceived?.Invoke(message);
-                        }
-                        catch (Exception ex)
-                        {
-                            Console.WriteLine($"消息处理订阅触发异常: {ex.Message}");
-                        }
+                            message = KeyHandler.DecryptString(message); // 解密 App 端发来的消息
+                            Console.WriteLine(DateTime.Now + message);
+                            if (string.IsNullOrWhiteSpace(message))
+                            {
+                                Console.WriteLine("收到空消息，忽略处理");
+                                continue;
+                            }
 
-                        // 发送确认消息给 App 端
-                        var responseMessage = $"已收到消息: {message}";
-                        var responseBuffer = Encoding.UTF8.GetBytes(responseMessage);
-                        await webSocket.SendAsync(new ArraySegment<byte>(responseBuffer), WebSocketMessageType.Text,
-                            true,
-                            CancellationToken.None);
-                        Console.WriteLine($"{DateTime.Now}已发送确认消息 ");
+                            ReceivedMessages.Enqueue(message);
+
+                            try
+                            {
+                                OnMessageReceived?.Invoke(message);
+                            }
+                            catch (Exception ex)
+                            {
+                                Console.WriteLine($"消息处理订阅触发异常: {ex.Message}");
+                            }
+
+                            // 发送确认消息给 App 端
+                            var responseMessage = ConfirmedField + "." + $"已收到消息: {message}";
+                            var responseBuffer = Encoding.UTF8.GetBytes(responseMessage);
+                            await webSocket.SendAsync(new ArraySegment<byte>(responseBuffer), WebSocketMessageType.Text,
+                                true,
+                                CancellationToken.None);
+                            Console.WriteLine($"{DateTime.Now}已发送确认消息 ");
+                        }
                     }
                 }
             }
@@ -261,7 +278,7 @@ namespace WinCAPTCHA.ServiceHandler
             var encryptedText = KeyHandler.EncryptString(ConnectInfoHandler.GetDeviceID());
             var signature = KeyHandler.SignData(deviceId);
 
-            return Encoding.UTF8.GetBytes("verification" + "." + encryptedText + "." + signature);
+            return Encoding.UTF8.GetBytes(ValidationField + "." + encryptedText + "." + signature);
         }
 
         public async Task StopWebSocketServer()
