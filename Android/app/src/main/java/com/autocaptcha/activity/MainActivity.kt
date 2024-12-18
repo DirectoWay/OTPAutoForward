@@ -1,11 +1,7 @@
 package com.autocaptcha.activity
 
-import android.content.BroadcastReceiver
-import android.content.Context
 import android.content.Intent
-import android.content.IntentFilter
 import android.content.pm.PackageManager
-import android.net.ConnectivityManager
 import android.os.Bundle
 import android.util.Log
 import android.view.Menu
@@ -29,6 +25,7 @@ import androidx.navigation.ui.NavigationUI
 import com.autocaptcha.viewmodel.DevicePairViewModel
 import com.autocaptcha.R
 import com.autocaptcha.databinding.ActivityMainBinding
+import android.provider.Settings
 
 
 class MainActivity : AppCompatActivity() {
@@ -41,11 +38,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     private lateinit var devicePairViewModel: DevicePairViewModel
-    private lateinit var networkReceiver: BroadcastReceiver
     private lateinit var appBarConfiguration: AppBarConfiguration
     private lateinit var binding: ActivityMainBinding
     private val smsPermissionCode = 100
-
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -74,6 +69,11 @@ class MainActivity : AppCompatActivity() {
         )
         setupActionBarWithNavController(navController, appBarConfiguration)
         navView.setupWithNavController(navController)
+
+        // 检查并请求通知访问权限
+        if (!isNotificationServiceEnabled()) {
+            showNotificationPermissionDialog()
+        }
 
         // 检查并请求短信权限
         checkAndRequestSmsPermission()
@@ -109,29 +109,6 @@ class MainActivity : AppCompatActivity() {
         return navController.navigateUp(appBarConfiguration) || super.onSupportNavigateUp()
     }
 
-    override fun onResume() {
-        super.onResume()
-        val filter = IntentFilter(ConnectivityManager.CONNECTIVITY_ACTION)
-        networkReceiver = object : BroadcastReceiver() {
-            override fun onReceive(context: Context?, intent: Intent?) {
-                val connectivityManager =
-                    context?.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-                val networkInfo = connectivityManager.activeNetworkInfo
-                if (networkInfo != null && networkInfo.isConnected) {
-                    Log.d("network", "网络已连接")
-                } else {
-                    Log.d("network", "网络已断开")
-                }
-            }
-        }
-        registerReceiver(networkReceiver, filter)
-    }
-
-    override fun onPause() {
-        super.onPause()
-        unregisterReceiver(networkReceiver)
-    }
-
     private fun checkAndRequestSmsPermission() {
         val smsPermission = Manifest.permission.RECEIVE_SMS
         val readSmsPermission = Manifest.permission.READ_SMS
@@ -155,9 +132,26 @@ class MainActivity : AppCompatActivity() {
             if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 Log.d("SMS", "短信权限已获取")
             } else {
-                Log.d("SMS", "短信权限获取失败")
+                Log.e("SMS", "短信权限获取失败")
             }
         }
+    }
+
+    /** 检查通知访问权限 */
+    private fun isNotificationServiceEnabled(): Boolean {
+        val packageName = packageName
+        val flat = Settings.Secure.getString(contentResolver, "enabled_notification_listeners")
+        return flat != null && flat.contains(packageName)
+    }
+
+    /** 获取通知访问权限 */
+    private fun showNotificationPermissionDialog() {
+        AlertDialog.Builder(this).setTitle("需要通知访问权限")
+            .setMessage("为了确保短信能正常进行转发, 请您授予通知访问权限。")
+            .setPositiveButton("去设置") { _, _ ->
+                val intent = Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)// 打开系统设置界面
+                startActivity(intent)
+            }.setNegativeButton("取消", null).show()
     }
 
     /** 跳转至问题反馈页面 */
