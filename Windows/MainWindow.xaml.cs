@@ -5,10 +5,10 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using System.Windows;
 using Microsoft.Toolkit.Uwp.Notifications;
-using WinCAPTCHA.ServiceHandler;
+using OTPAutoForward.ServiceHandler;
 using Clipboard = System.Windows.Clipboard;
 
-namespace WinCAPTCHA
+namespace OTPAutoForward
 {
     /// <summary>
     /// Interaction logic for MainWindow.xaml

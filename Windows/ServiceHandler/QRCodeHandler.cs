@@ -6,7 +6,7 @@ using System.Windows.Media.Imaging;
 using ZXing;
 using ZXing.Common;
 
-namespace WinCAPTCHA.ServiceHandler
+namespace OTPAutoForward.ServiceHandler
 {
     /// <summary>
     /// 处理二维码相关的操作

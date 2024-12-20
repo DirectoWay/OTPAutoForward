@@ -11,7 +11,7 @@ using Org.BouncyCastle.OpenSsl;
 using Org.BouncyCastle.Security;
 using Org.BouncyCastle.X509;
 
-namespace WinCAPTCHA.ServiceHandler
+namespace OTPAutoForward.ServiceHandler
 {
     public static class KeyHandler
     {

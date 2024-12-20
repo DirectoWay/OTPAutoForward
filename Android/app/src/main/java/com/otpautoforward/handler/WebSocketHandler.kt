@@ -43,10 +43,10 @@ import java.util.concurrent.atomic.AtomicReference
 private const val WebSocketPort = 9224
 
 /** WebSocket 请求头自定义字段 */
-private const val WebSocketHeaderField = "X-WinCAPTCHA-Auth"
+private const val WebSocketHeaderField = "X-OTPAutoForward-Auth"
 
 /** WebSocket 请求头中必须包含的密钥 */
-private const val WebSocketHeaderKey = "autoCAPTCHA-encryptedKey"
+private const val WebSocketHeaderKey = "OTPAForward-encryptedKey"
 
 /** 等待 Win 端回复 WebSocket 消息的时间 */
 private const val MESSAGE_TIMEOUT = 5 * 1000L

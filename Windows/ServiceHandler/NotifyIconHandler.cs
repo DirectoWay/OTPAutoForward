@@ -7,7 +7,7 @@ using System.Windows.Forms;
 using Microsoft.Win32;
 using FontAwesome.Sharp;
 
-namespace WinCAPTCHA.ServiceHandler
+namespace OTPAutoForward.ServiceHandler
 {
     /** 用于管理软件的托盘图标与托盘菜单 */
     public class NotifyIconHandler

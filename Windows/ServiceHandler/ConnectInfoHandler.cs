@@ -6,7 +6,7 @@ using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
 
-namespace WinCAPTCHA.ServiceHandler
+namespace OTPAutoForward.ServiceHandler
 {
     public static class ConnectInfoHandler
     {

@@ -1,6 +1,6 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WinCAPTCHA", "WinCAPTCHA.csproj", "{84C2BD55-A6CD-47BB-9EEA-A7156AB9B55A}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OTPAutoForward", "OTPAutoForward.csproj", "{84C2BD55-A6CD-47BB-9EEA-A7156AB9B55A}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

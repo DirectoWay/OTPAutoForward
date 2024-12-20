@@ -2,7 +2,7 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 
-namespace WinCAPTCHA.ServiceHandler
+namespace OTPAutoForward.ServiceHandler
 {
     /** 用于测试和监控剪贴板 */
     public class ClipboardHandler

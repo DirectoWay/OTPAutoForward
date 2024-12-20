@@ -6,9 +6,9 @@ using System.Windows;
 using System.Windows.Threading;
 using Autofac;
 using Microsoft.Extensions.Configuration;
-using WinCAPTCHA.ServiceHandler;
+using OTPAutoForward.ServiceHandler;
 
-namespace WinCAPTCHA
+namespace OTPAutoForward
 {
     /// <summary>
     /// Interaction logic for App.xaml

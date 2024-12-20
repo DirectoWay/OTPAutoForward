@@ -1,1 +1,1 @@
-# WinCAPTCHA
+# OTPAutoForward

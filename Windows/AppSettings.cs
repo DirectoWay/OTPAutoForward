@@ -1,11 +1,11 @@
 ﻿using System.Collections.Generic;
 
-namespace WinCAPTCHA
+namespace OTPAutoForward
 {
     public class AppSettings
     {
-        /** 程序名称 默认为 WinCAPTCHA */
-        public string AppName { get; set; } = "WinCAPTCHA";
+        /** 程序名称 */
+        public string AppName { get; set; } = "OTPAutoForward";
 
         /** WebSocket 运行时的端口号 默认为 9224 端口 */
         public int WebSocketPort { get; set; } = 9224;

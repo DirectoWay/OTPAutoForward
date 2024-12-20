@@ -7,7 +7,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace WinCAPTCHA.ServiceHandler
+namespace OTPAutoForward.ServiceHandler
 {
     /* 用于启动 WebSocket 服务器 */
     public class WebSocketHandler
@@ -21,10 +21,10 @@ namespace WinCAPTCHA.ServiceHandler
         private readonly int _port = App.AppSettings.WebSocketPort;
 
         /** WebSocket 请求头自定义字段 */
-        private const string WebSocketHeaderField = "X-WinCAPTCHA-Auth";
+        private const string WebSocketHeaderField = "X-OTPAutoForward-Auth";
 
         /** WebSocket 请求头中必须包含的密钥 */
-        private const string WebSocketHeaderKey = "autoCAPTCHA-encryptedKey";
+        private const string WebSocketHeaderKey = "OTPAForward-encryptedKey";
 
         /** 用于验证 WebSocket 身份的字段名称 */
         private const string ValidationField = "verification";
@@ -137,7 +137,7 @@ namespace WinCAPTCHA.ServiceHandler
         /// <summary>
         /// 建立 WebSocket 连接时验证客户端的请求头 请求头中必须包含关键密钥与时间戳
         /// </summary>
-        /// <param name="headers">键值对形式的请求头参数 如: X-WinCAPTCHA-Auth: encryptedToken</param>
+        /// <param name="headers">键值对形式的请求头参数 如: X-OTPAutoForward-Auth: encryptedToken</param>
         /// <returns>true 代表请求头验证通过 允许建立 WebSocket 连接</returns>
         private static bool VerifyWebSocketHeader(System.Collections.Specialized.NameValueCollection headers)
         {
