@@ -5,11 +5,11 @@ plugins {
 }
 
 android {
-    namespace = "com.autocaptcha"
+    namespace = "com.otpautoforward"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.autocaptcha"
+        applicationId = "com.otpautoforward"
         minSdk = 29
         targetSdk = 35
         versionCode = 1

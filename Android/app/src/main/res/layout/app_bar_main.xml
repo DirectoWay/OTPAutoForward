@@ -5,7 +5,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="#F5F5F5"
-    tools:context=".MainActivity">
+    tools:context=".activity.MainActivity">
 
     <!-- 顶部导航栏 -->
     <com.google.android.material.appbar.AppBarLayout
@@ -20,7 +20,8 @@
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
             android:background="@android:color/transparent"
-            app:elevation="0dp" />
+            app:elevation="0dp">
+        </androidx.appcompat.widget.Toolbar>
 
     </com.google.android.material.appbar.AppBarLayout>
 

@@ -31,6 +31,6 @@ pluginManagement {
         }
     }
 
-    rootProject.name = "AutoCAPTCHA"
+    rootProject.name = "OTPAutoForward"
     include(":app")
 }

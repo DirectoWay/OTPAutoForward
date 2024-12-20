@@ -3,28 +3,11 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/mobile_navigation"
-    app:startDestination="@+id/nav_pair">
+    app:startDestination="@+id/nav_main">
 
     <fragment
-        android:id="@+id/nav_pair"
-        android:name="com.autocaptcha.fragment.PairFragment"
-        android:label="无线配对"
-        tools:layout="@layout/fragment_pair" />
-
-    <fragment
-        android:id="@+id/nav_gallery"
-        android:name="com.autocaptcha.fragment.GalleryFragment"
-        android:label="@string/menu_gallery"
-        tools:layout="@layout/fragment_gallery" />
-
-    <fragment
-        android:id="@+id/nav_settings"
-        android:name="com.autocaptcha.fragment.SettingsFragment"
-        android:label="设置"
-        tools:layout="@layout/fragment_settings" />
-
-    <fragment
-        android:id="@+id/nav_feedback"
-        android:name="com.autocaptcha.fragment.FeedbackFragment"
-        android:label="问题反馈" />
+        android:id="@+id/nav_main"
+        android:name="com.otpautoforward.fragment.MainFragment"
+        android:label="OTPAutoForward"
+        tools:layout="@layout/fragment_main" />
 </navigation>

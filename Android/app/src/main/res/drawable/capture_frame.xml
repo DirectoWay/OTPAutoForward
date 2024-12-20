@@ -1,5 +1,0 @@
-<shape xmlns:android="http://schemas.android.com/apk/res/android"
-    android:shape="rectangle">
-    <solid android:color="@android:color/transparent" />
-    <stroke android:width="5dp" android:color="@color/colorAccent" /> <!-- 取景框边框颜色 -->
-</shape>

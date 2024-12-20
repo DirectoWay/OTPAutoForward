@@ -12,12 +12,15 @@
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:padding="10dp">
+        android:padding="0dp">
 
         <ImageView
             android:id="@+id/icon_paired_deviceType"
             android:layout_width="30dp"
             android:layout_height="30dp"
+            android:layout_marginStart="30dp"
+            android:layout_marginTop="15dp"
+            android:layout_marginBottom="10dp"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toStartOf="@id/text_paired_deviceName"
             app:layout_constraintStart_toStartOf="parent"
@@ -29,24 +32,23 @@
             android:id="@+id/text_paired_deviceName"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
+            android:layout_marginStart="25dp"
             android:textColor="@color/black"
             android:textSize="18sp"
-            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintBottom_toBottomOf="@id/icon_paired_deviceType"
             app:layout_constraintEnd_toStartOf="@id/icon_paired_setting"
             app:layout_constraintStart_toEndOf="@id/icon_paired_deviceType"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintVertical_bias="0.5"
-            app:layout_constraintWidth_percent="0.5" />
+            app:layout_constraintTop_toTopOf="@id/icon_paired_deviceType" />
 
         <ImageView
             android:id="@+id/icon_paired_setting"
             android:layout_width="30dp"
             android:layout_height="30dp"
-            app:layout_constraintBottom_toBottomOf="parent"
+            android:layout_marginEnd="35dp"
+            app:layout_constraintBottom_toBottomOf="@id/icon_paired_deviceType"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toEndOf="@id/text_paired_deviceName"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintVertical_bias="0.5"
+            app:layout_constraintTop_toTopOf="@id/icon_paired_deviceType"
             app:tint="#0F826E" />
     </androidx.constraintlayout.widget.ConstraintLayout>
 </com.google.android.material.card.MaterialCardView>

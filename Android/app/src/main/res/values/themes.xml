@@ -1,6 +1,6 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <!-- Base application theme. -->
-    <style name="Theme.AutoCAPTCHA" parent="Theme.MaterialComponents.Light.NoActionBar.Bridge">
+    <style name="Theme.Main" parent="Theme.MaterialComponents.Light.NoActionBar.Bridge">
         <!-- Primary brand color. -->
         <!--<item name="android:windowTranslucentStatus">true</item>--> <!-- 状态栏透明状态 -->
         <item name="android:windowDrawsSystemBarBackgrounds">true</item> <!-- 允许绘制状态栏颜色 -->
