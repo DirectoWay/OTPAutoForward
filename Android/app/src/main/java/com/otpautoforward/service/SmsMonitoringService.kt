@@ -10,7 +10,7 @@ import android.net.NetworkCapabilities
 import android.telephony.SmsMessage
 import android.util.Log
 import com.otpautoforward.handler.WebSocketWorker
-import com.otpautoforward.viewmodel.SettingKey
+import com.otpautoforward.dataclass.SettingKey
 
 @Suppress("DEPRECATION")
 class SmsReceiver : BroadcastReceiver() {

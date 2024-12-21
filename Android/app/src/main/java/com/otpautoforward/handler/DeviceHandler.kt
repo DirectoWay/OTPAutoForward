@@ -8,10 +8,11 @@ import com.otpautoforward.activity.PairedDeviceSettingsActivity
 import com.otpautoforward.dataclass.DisplayDeviceInfo
 import com.otpautoforward.R
 import com.otpautoforward.databinding.FragmentPairDeviceinfoBinding
+import com.otpautoforward.fragment.MainFragment
 
 /** 动态的给配对页面的 RecyclerView 中生成元素, 用以动态生成已经配对的设备信息 */
 class DeviceHandler(private val container: LinearLayout) {
-    private var webSocketHandler: WebSocketHandler = WebSocketHandler()
+    private var globalHandler: GlobalHandler = GlobalHandler()
 
     /** 测试用的模拟设备 */
     private val testDeviceList: List<DisplayDeviceInfo> = listOf(
@@ -36,7 +37,7 @@ class DeviceHandler(private val container: LinearLayout) {
     )
 
     fun getDeviceInfo(context: Context): List<DisplayDeviceInfo> {
-        val allDevicesInfo = webSocketHandler.getAllDevicesInfo(context.applicationContext)
+        val allDevicesInfo = globalHandler.getAllDevicesInfo(context.applicationContext)
 
         return allDevicesInfo.map { pairingInfo ->
             DisplayDeviceInfo(
@@ -59,7 +60,7 @@ class DeviceHandler(private val container: LinearLayout) {
     }
 
     /** 动态绑定设备信息与图标 */
-    fun bindDeviceInfo(devices: List<DisplayDeviceInfo>) {
+    fun bindDeviceInfo(devices: List<DisplayDeviceInfo>, fragment: MainFragment) {
         container.removeAllViews() // 清空之前的视图
         for (device in devices) {
             val binding = FragmentPairDeviceinfoBinding.inflate(
@@ -72,6 +73,8 @@ class DeviceHandler(private val container: LinearLayout) {
 
             // 给已配对的设备绑定点击事件
             binding.viewPairedDeviceContainer.setOnClickListener {
+                fragment.settingIcon = binding.iconPairedSetting
+
                 val intent =
                     Intent(container.context, PairedDeviceSettingsActivity::class.java).apply {
                         putExtra("DEVICE_ID", device.deviceId)

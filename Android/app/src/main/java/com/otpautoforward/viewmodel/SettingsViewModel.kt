@@ -5,14 +5,7 @@ import android.content.Context
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
-
-enum class SettingKey(val key: String) {
-    AppPreferences("AppPreferences"),
-    SmsEnabled("SmsEnabled"),
-    ScreenLocked("forwardOnlyScreenLocked"),
-    SyncDoNotDistribute("syncDoNotDistribute"),
-    ForwardOnlyOTP("forwardOnlyOTP")
-}
+import com.otpautoforward.dataclass.SettingKey
 
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
     /** 用于通知 MainFragment 刷新当前已配对的设备 */

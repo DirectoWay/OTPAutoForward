@@ -6,10 +6,6 @@ import android.os.Bundle
 import android.util.Log
 import android.view.Menu
 import com.google.android.material.snackbar.Snackbar
-import androidx.navigation.findNavController
-import androidx.navigation.ui.AppBarConfiguration
-import androidx.navigation.ui.setupActionBarWithNavController
-import androidx.drawerlayout.widget.DrawerLayout
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -19,17 +15,32 @@ import android.animation.AnimatorListenerAdapter
 import android.animation.AnimatorSet
 import android.animation.ObjectAnimator
 import android.animation.ValueAnimator
+import android.annotation.SuppressLint
+import android.content.Context
 import android.graphics.Color
 import android.net.Uri
+import android.os.Build
+import android.os.PowerManager
 import android.view.MenuItem
 import android.view.animation.AnticipateOvershootInterpolator
 import android.view.animation.DecelerateInterpolator
 import android.widget.ImageView
+import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.widget.Toolbar
 import androidx.core.graphics.drawable.DrawableCompat
 import com.otpautoforward.R
 import com.otpautoforward.databinding.ActivityMainBinding
+import com.otpautoforward.handler.GlobalHandler
+import com.otpautoforward.handler.WebSocketWorker
+import android.provider.Settings
+import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.contract.ActivityResultContracts
+
+private const val testMessage =
+    "【测试短信】尾号为1234的用户您好, 987123 是您的验证码, 这是一条测试短信"
+private const val testSender = "测试员"
+private const val tag = "OTPAutoForward"
 
 class MainActivity : AppCompatActivity() {
     // 用于获取 MainActivity 的实例
@@ -40,14 +51,16 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private lateinit var appBarConfiguration: AppBarConfiguration
     private lateinit var binding: ActivityMainBinding
+    private lateinit var batteryOptiLauncher: ActivityResultLauncher<Intent>
     private val smsPermissionCode = 100
     private lateinit var toolbar: Toolbar
+    private val globalHandler = GlobalHandler()
 
-    /** 当前动画状态 */
+    /** 导航栏的动画是否已经播放完毕 */
     private var isAnimating = false
 
+    @RequiresApi(Build.VERSION_CODES.R)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         instance = this
@@ -68,24 +81,28 @@ class MainActivity : AppCompatActivity() {
         }
         setSupportActionBar(binding.appBarMain.toolbar)
 
-        val drawerLayout: DrawerLayout = binding.drawerLayout
-        val navController = findNavController(R.id.nav_host_fragment_content_main)
-        appBarConfiguration = AppBarConfiguration(
-            setOf(
-                R.id.nav_main
-            ), drawerLayout
-        )
-        setSupportActionBar(binding.appBarMain.toolbar)
-        setupActionBarWithNavController(navController, appBarConfiguration)
-
         // 设置左上角导航图标
         supportActionBar?.setHomeAsUpIndicator(R.drawable.outline_rocket_launch_24)
+        supportActionBar?.setHomeActionContentDescription("点我测试短信效果")
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
 
         // 点击右下角短信 icon 的触发事件
         binding.appBarMain.fab.setOnClickListener { view ->
             Snackbar.make(view, "敬请期待", Snackbar.LENGTH_LONG).setAction("Action", null)
                 .setAnchorView(R.id.fab).show()
+        }
+
+        batteryOptiLauncher =
+            registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+                if (!checkBatteryOpti()) {
+                    batteryOpti()
+                }
+            }
+
+        // 检查电池白名单
+        if (!checkBatteryOpti()) {
+            Log.d(tag, "当前已受后台省电策略限制")
+            batteryOpti()
         }
 
         // 检查并请求短信权限
@@ -108,6 +125,12 @@ class MainActivity : AppCompatActivity() {
             android.R.id.home -> {
                 if (!isAnimating) {
                     animateNavIcon()
+                    if (globalHandler.hasPairedDevice(this)) {
+                        WebSocketWorker.sendWebSocketMessage(
+                            this,
+                            "$testMessage\n发送者：$testSender"
+                        )
+                    }
                 }
                 true
             }
@@ -116,18 +139,55 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    /** 检查当前是否处于电池优化白名单, 返回 false 时说明已受后台省电策略限制 */
+    private fun checkBatteryOpti(): Boolean {
+        val powerManager =
+            getSystemService(Context.POWER_SERVICE) as PowerManager
+        return powerManager.isIgnoringBatteryOptimizations(packageName)
+    }
+
+    @SuppressLint("BatteryLife")
+    /** 添加电池白名单 */
+    private fun batteryOpti() {
+        val builder = AlertDialog.Builder(this)
+        builder.setTitle("电池优化白名单请求")
+            .setMessage("请允许 App 的省电策略被设置为无限制或不受限制, 以免息屏后无法进行短信转发")
+            .setPositiveButton("去设置") { _, _ ->
+                val intent = Intent().apply {
+                    action = Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS
+                    data = Uri.parse("package:$packageName")
+                }
+                batteryOptiLauncher.launch(intent)
+            }
+            .setNegativeButton("取消") { dialog, _ -> dialog.dismiss() }
+        val dialog = builder.create()
+        dialog.show()
+    }
+
     private fun checkAndRequestSmsPermission() {
         val smsPermission = Manifest.permission.RECEIVE_SMS
-        val readSmsPermission = Manifest.permission.READ_SMS
-        if (ContextCompat.checkSelfPermission(
-                this, smsPermission
-            ) != PackageManager.PERMISSION_GRANTED || ContextCompat.checkSelfPermission(
-                this, readSmsPermission
-            ) != PackageManager.PERMISSION_GRANTED
-        ) {
-            ActivityCompat.requestPermissions(
-                this, arrayOf(smsPermission, readSmsPermission), smsPermissionCode
-            )
+        val receiveSmsGranted = ContextCompat.checkSelfPermission(
+            this,
+            smsPermission
+        ) == PackageManager.PERMISSION_GRANTED
+        if (!receiveSmsGranted) {
+            if (ActivityCompat.shouldShowRequestPermissionRationale(this, smsPermission)) {
+                AlertDialog.Builder(this)
+                    .setTitle("短信权限请求")
+                    .setMessage("为了 App 能正常工作, 请您授予接收短信的权限")
+                    .setPositiveButton("授予权限") { _, _ ->
+                        ActivityCompat.requestPermissions(
+                            this,
+                            arrayOf(Manifest.permission.RECEIVE_SMS),
+                            smsPermissionCode
+                        )
+                    }
+                    .setNegativeButton("拒绝") { _, _ -> Log.e(tag, "短信权限已被拒绝") }
+                    .create()
+                    .show()
+            } else {
+                ActivityCompat.requestPermissions(this, arrayOf(smsPermission), smsPermissionCode)
+            }
         }
     }
 
@@ -137,19 +197,40 @@ class MainActivity : AppCompatActivity() {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == smsPermissionCode) {
             if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                Log.d("SMS", "短信权限已获取")
+                Log.d(tag, "短信权限已获取")
             } else {
-                Log.e("SMS", "短信权限获取失败")
+                showPermissionSettingsDialog()
+                Log.e(tag, "短信权限获取失败")
             }
         }
     }
 
+    /** 检测到短信权限被拒绝后, 跳转至应用设置页面重新授予短信权限 */
+    private fun showPermissionSettingsDialog() {
+        AlertDialog.Builder(this)
+            .setMessage("短信权限已被拒绝\nApp 可能无法正常使用")
+            .setPositiveButton("去设置") { _, _ ->
+                val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                val uri =
+                    Uri.fromParts("package", packageName, null)
+                intent.data = uri
+                startActivity(intent)
+            }
+            .setNegativeButton("取消") { _, _ ->
+                Log.e(tag, "短信权限未获取")
+            }
+            .create()
+            .show()
+    }
+
     /** 跳转至问题反馈页面 */
     private fun openFeedbackUrl() {
-        AlertDialog.Builder(this).setTitle("打开外部浏览器").setMessage("即将跳转至反馈页面?")
+        AlertDialog.Builder(this).setTitle("打开外部浏览器")
+            .setMessage("即将跳转至反馈页面?")
             .setPositiveButton("确定") { _, _ ->
                 val intent = Intent(
-                    Intent.ACTION_VIEW, Uri.parse("https://shimo.im/forms/25q5X4Wl48fWJQ3D/fill")
+                    Intent.ACTION_VIEW,
+                    Uri.parse("https://shimo.im/forms/25q5X4Wl48fWJQ3D/fill")
                 )
                 startActivity(intent)
             }.setNegativeButton("取消") { dialog, _ -> dialog.dismiss() }.show()
@@ -167,7 +248,18 @@ class MainActivity : AppCompatActivity() {
 
         // 抖动动画
         val shakeAnimator1 =
-            ObjectAnimator.ofFloat(navIconView, "translationX", 0f, 2f, -2f, 2f, -2f, 1f, -1f, 0f)
+            ObjectAnimator.ofFloat(
+                navIconView,
+                "translationX",
+                0f,
+                2f,
+                -2f,
+                2f,
+                -2f,
+                1f,
+                -1f,
+                0f
+            )
         shakeAnimator1.duration = 300
 
         val shakeAnimator2 = ObjectAnimator.ofFloat(
@@ -182,16 +274,22 @@ class MainActivity : AppCompatActivity() {
 
         // 合并多段抖动动画
         val shakeAnimatorSet = AnimatorSet()
-        shakeAnimatorSet.playSequentially(shakeAnimator1, shakeAnimator2, shakeAnimator3)
+        shakeAnimatorSet.playSequentially(
+            shakeAnimator1,
+            shakeAnimator2,
+            shakeAnimator3
+        )
 
         // 颜色渐变
-        val colorAnimatorToGreen = ValueAnimator.ofArgb(Color.BLACK, Color.parseColor("#0F826E"))
+        val colorAnimatorToGreen =
+            ValueAnimator.ofArgb(Color.BLACK, Color.parseColor("#0F826E"))
         colorAnimatorToGreen.addUpdateListener { animator ->
             DrawableCompat.setTint(navIconView.drawable, animator.animatedValue as Int)
         }
         colorAnimatorToGreen.duration = 500 // 颜色渐变时间
 
-        val colorAnimatorToBlack = ValueAnimator.ofArgb(Color.parseColor("#0F826E"), Color.BLACK)
+        val colorAnimatorToBlack =
+            ValueAnimator.ofArgb(Color.parseColor("#0F826E"), Color.BLACK)
         colorAnimatorToBlack.addUpdateListener { animator ->
             DrawableCompat.setTint(navIconView.drawable, animator.animatedValue as Int)
         }
@@ -204,7 +302,12 @@ class MainActivity : AppCompatActivity() {
         moveToRight.interpolator = AnticipateOvershootInterpolator()
         // 图标复原
         val resetPosition =
-            ObjectAnimator.ofFloat(navIconView, "x", -navIconView.width.toFloat(), startX)
+            ObjectAnimator.ofFloat(
+                navIconView,
+                "x",
+                -navIconView.width.toFloat(),
+                startX
+            )
         resetPosition.duration = 1500 // 动画持续时间1秒
         resetPosition.interpolator = DecelerateInterpolator(1.5f)
 
@@ -230,5 +333,7 @@ class MainActivity : AppCompatActivity() {
             instance = null
         }
     }
-
 }
+
+
+

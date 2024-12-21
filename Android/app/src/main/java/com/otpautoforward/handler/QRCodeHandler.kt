@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Log
 import com.google.gson.Gson
 import com.otpautoforward.dataclass.PairedDeviceInfo
+import com.otpautoforward.dataclass.SettingKey
 import org.json.JSONObject
 
 /** 处理 Win 端提供的二维码 */
@@ -40,7 +41,7 @@ class QRCodeHandler {
     /** 记录已经匹配成功过的设备 */
     fun saveDeviceInfo(context: Context, pairedDeviceInfo: PairedDeviceInfo) {
         val sharedPreferences =
-            context.getSharedPreferences("KnownDevices", Context.MODE_PRIVATE)
+            context.getSharedPreferences(SettingKey.PairedDevices.key, Context.MODE_PRIVATE)
         val editor = sharedPreferences.edit()
         val deviceInfo = JSONObject().apply {
             put("deviceName", pairedDeviceInfo.deviceName)

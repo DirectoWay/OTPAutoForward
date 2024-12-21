@@ -9,6 +9,7 @@ import androidx.lifecycle.ViewModelProvider
 import com.otpautoforward.viewmodel.SettingsViewModel
 import com.otpautoforward.R
 import com.otpautoforward.databinding.ActivityPairDeviceSettingsBinding
+import com.otpautoforward.dataclass.SettingKey
 
 class PairedDeviceSettingsActivity : AppCompatActivity() {
     private lateinit var settingsViewModel: SettingsViewModel
@@ -44,7 +45,10 @@ class PairedDeviceSettingsActivity : AppCompatActivity() {
 
     private fun removeDeviceInfo(deviceId: String) {
         val sharedPreferences =
-            applicationContext.getSharedPreferences("KnownDevices", Context.MODE_PRIVATE)
+            applicationContext.getSharedPreferences(
+                SettingKey.PairedDevices.key,
+                Context.MODE_PRIVATE
+            )
         val editor = sharedPreferences.edit()
         editor.remove(deviceId)
         editor.apply()

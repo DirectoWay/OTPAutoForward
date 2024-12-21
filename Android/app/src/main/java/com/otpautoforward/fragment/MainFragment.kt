@@ -8,23 +8,23 @@ import android.animation.ArgbEvaluator
 import android.animation.ObjectAnimator
 import android.animation.ValueAnimator
 import android.app.Activity
-import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
-import android.net.ConnectivityManager
-import android.net.LinkProperties
-import android.net.Network
-import android.net.NetworkCapabilities
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.provider.Settings
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.view.animation.Animation
+import android.view.animation.AnimationUtils
 import android.widget.ImageView
+import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.cardview.widget.CardView
@@ -36,35 +36,52 @@ import com.otpautoforward.activity.CaptureQRCodeActivity
 import com.otpautoforward.databinding.FragmentMainBinding
 import com.otpautoforward.handler.DeviceHandler
 import com.otpautoforward.handler.QRCodeHandler
-import com.otpautoforward.viewmodel.SettingKey
+import com.otpautoforward.dataclass.SettingKey
 import com.otpautoforward.viewmodel.SettingsViewModel
 import com.google.android.material.snackbar.Snackbar
-import java.net.Inet4Address
+import com.otpautoforward.databinding.FragmentPairDeviceinfoBinding
+import com.otpautoforward.handler.GlobalHandler
+
+private const val tagF = "OTPAutoForward"
 
 class MainFragment : Fragment() {
     private lateinit var settingsViewModel: SettingsViewModel
+
     private var _binding: FragmentMainBinding? = null
     private val binding get() = _binding!!
+
+    private var _pairDeviceBinding: FragmentPairDeviceinfoBinding? = null
+    private val pairDeviceBinding get() = _pairDeviceBinding!!
+
+    private val globalHandler = GlobalHandler()
     private val qrCodeHandler = QRCodeHandler()
-    private val qrCodeLauncher =
-        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-            if (result.resultCode == Activity.RESULT_OK) {
-                val qrData = result.data?.getStringExtra("SCAN_RESULT")
-                handleQRCodeResult(qrData)
-            } else {
-                Log.d("camera", "相机调用失败或取消")
-            }
-        }
+
+    private lateinit var qrCodeLauncher: ActivityResultLauncher<Intent>
+
+    lateinit var settingIcon: ImageView
+    private lateinit var rotateAnimation: Animation
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
     ): View {
         _binding = FragmentMainBinding.inflate(inflater, container, false)
+        _pairDeviceBinding = FragmentPairDeviceinfoBinding.inflate(inflater, container, false)
+
+        // 注册二维码启动器, 有权限的情况下直接启动扫码
+        qrCodeLauncher =
+            registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+                if (result.resultCode == Activity.RESULT_OK) {
+                    val qrData = result.data?.getStringExtra("SCAN_RESULT")
+                    handleQRCodeResult(qrData)
+                } else {
+                    Log.d(tagF, "相机调用失败或取消")
+                }
+            }
 
         // 初始化配对按钮点击事件
         binding.viewQrPair.setOnClickListener { checkCameraPermission() }
         binding.viewCodePair.setOnClickListener { view ->
-            Snackbar.make(view, "暂未开通", Snackbar.LENGTH_LONG).setAction("Action", null)
+            Snackbar.make(view, "功能暂未开通", Snackbar.LENGTH_LONG).setAction("Action", null)
                 .setAnchorView(R.id.fab).show()
         }
         return binding.root
@@ -75,12 +92,12 @@ class MainFragment : Fragment() {
 
         // 前台获取设备名称与 IP 地址
         val deviceName = "${Build.MANUFACTURER} ${Build.MODEL}"
-        val deviceIPAddress = getDeviceIPAddress(requireContext())
+        val deviceIPAddress = globalHandler.getDeviceIPAddress(requireContext())
         binding.deviceName.text = deviceName
         binding.deviceIPAddress.text = deviceIPAddress
         binding.viewQrPair.elevation = 0f
 
-        // 观察开关的变化
+        // 观察页面上开关的变化
         settingsViewModel = ViewModelProvider(requireActivity())[SettingsViewModel::class.java]
 
         settingsViewModel.settings.observe(viewLifecycleOwner) { settings ->
@@ -99,6 +116,16 @@ class MainFragment : Fragment() {
         initializeSwitchState()
 
         switchListener()
+
+        // 初始化小齿轮的动画效果
+        rotateAnimation =
+            AnimationUtils.loadAnimation(requireContext(), R.anim.animation_device_typeicon)
+        settingIcon = pairDeviceBinding.iconPairedSetting
+    }
+
+    override fun onResume() {
+        super.onResume()
+        settingIcon.startAnimation(rotateAnimation)
     }
 
     /** 检查相机权限 */
@@ -108,17 +135,46 @@ class MainFragment : Fragment() {
                 requireContext(), Manifest.permission.CAMERA
             ) == PackageManager.PERMISSION_GRANTED -> {
                 val intent =
-                    Intent(activity, CaptureQRCodeActivity::class.java) // 有相机权限直接启动扫码Activity
+                    Intent(activity, CaptureQRCodeActivity::class.java)
+                // 有相机权限直接启动扫码Activity
                 qrCodeLauncher.launch(intent)
             }
 
+            // 用户页面弹出对话框申请权限
             shouldShowRequestPermissionRationale(Manifest.permission.CAMERA) -> {
-                // 用户页面弹出对话框申请权限
+                showPermissionRationaleDialog()
             }
 
             // 没有相机权限则请求权限
-            else -> requestCameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+            else -> /*handlePermissionPermanentlyDenied()*/requestCameraPermissionLauncher.launch(
+                Manifest.permission.CAMERA
+            )
         }
+    }
+
+    private fun showPermissionRationaleDialog() {
+        AlertDialog.Builder(requireContext())
+            .setTitle("相机权限")
+            .setMessage("请授予相机权限用于扫描二维码").setPositiveButton("授予权限")
+            { dialog, _ ->
+                dialog.dismiss()
+                requestCameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+            }
+            .setNegativeButton("拒绝") { dialog, _ -> dialog.dismiss() }.show()
+    }
+
+    private fun handlePermissionPermanentlyDenied() {
+        AlertDialog.Builder(requireContext())
+            .setTitle("需要相机权限")
+            .setMessage("相机权限被拒绝, 请前往设置授予权限")
+            .setPositiveButton("去设置") { dialog, _ ->
+                dialog.dismiss()
+                val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                    data = Uri.fromParts("package", requireContext().packageName, null)
+                }
+                startActivity(intent)
+            }
+            .setNegativeButton("取消") { dialog, _ -> dialog.dismiss() }.show()
     }
 
     /** 请求相机权限 */
@@ -128,7 +184,10 @@ class MainFragment : Fragment() {
                 val intent = Intent(activity, CaptureQRCodeActivity::class.java)
                 qrCodeLauncher.launch(intent)
             } else {
-                Log.d("", "相机权限已遭拒绝")
+                Log.d(tagF, "相机权限已遭拒绝")
+                if (!shouldShowRequestPermissionRationale(Manifest.permission.CAMERA)) {
+                    handlePermissionPermanentlyDenied()
+                }
             }
         }
 
@@ -160,26 +219,6 @@ class MainFragment : Fragment() {
             .setPositiveButton("确定") { dialog, _ -> dialog.dismiss() }.show()
     }
 
-    private fun getDeviceIPAddress(context: Context): String? {
-        val connectivityManager =
-            context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-        val activeNetwork: Network = connectivityManager.activeNetwork ?: return null
-        val capabilities: NetworkCapabilities =
-            connectivityManager.getNetworkCapabilities(activeNetwork) ?: return null
-        val linkProperties: LinkProperties =
-            connectivityManager.getLinkProperties(activeNetwork) ?: return null
-
-        if (capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)) {
-            val addresses = linkProperties.linkAddresses
-            for (address in addresses) {
-                if (!address.address.isLoopbackAddress && address.address is Inet4Address) { // 检查是否是 IPv4 地址
-                    return address.address.hostAddress
-                }
-            }
-        }
-        return null
-    }
-
     /** 刷新已配对的设备 */
     private fun refreshPairedDevice() {
         val deviceHandler = DeviceHandler(binding.layoutPairedDeviceInfo)
@@ -191,7 +230,7 @@ class MainFragment : Fragment() {
         } else {
             binding.textPairedDevice.visibility = View.VISIBLE
             binding.viewPairedDeviceInfo.visibility = View.VISIBLE
-            deviceHandler.bindDeviceInfo(deviceList)
+            deviceHandler.bindDeviceInfo(deviceList, this)
         }
     }
 
