@@ -261,8 +261,11 @@ namespace OTPAutoForward.ServiceHandler
             {
                 if (webSocket.State != WebSocketState.Closed && webSocket.State != WebSocketState.Aborted)
                 {
+                    Console.WriteLine($"WebSocket 当前状态: {webSocket.State}. 即将关闭连接...");
                     await webSocket.CloseAsync(WebSocketCloseStatus.InternalServerError,
                         "WebSocket 连接异常中断", CancellationToken.None);
+                    Console.WriteLine(
+                        $"WebSocket 关闭状态: {webSocket.CloseStatus}, 描述: {webSocket.CloseStatusDescription}");
                 }
 
                 webSocket.Dispose();

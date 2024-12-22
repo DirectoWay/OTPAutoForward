@@ -160,6 +160,8 @@ namespace OTPAutoForward
         }
 
         /** 配对按钮: 获取配对用的二维码 */
+        private System.Timers.Timer _timer;
+
         private void GetQRCode(object sender, RoutedEventArgs e)
         {
             var qrData = QRCodeHandler.GenerateEncryptedQRCode();
@@ -167,6 +169,21 @@ namespace OTPAutoForward
 
             QrCodeImage.Source = qrCodeImage;
             QrCodeImage.Visibility = Visibility.Visible;
+
+            // 过一段时间后自动收起二维码
+            if (_timer != null)
+            {
+                _timer.Stop();
+                _timer.Dispose();
+            }
+
+            _timer = new System.Timers.Timer(1 * 60 * 1000);
+            _timer.Elapsed += (s, ev) =>
+            {
+                Dispatcher.Invoke(() => { QrCodeImage.Visibility = Visibility.Collapsed; });
+            };
+            _timer.AutoReset = false;
+            _timer.Enabled = true;
         }
     }
 }

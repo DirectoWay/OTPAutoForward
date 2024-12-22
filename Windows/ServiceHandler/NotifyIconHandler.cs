@@ -62,6 +62,10 @@ namespace OTPAutoForward.ServiceHandler
             };
             contextMenu.Items.Add(autoStartItem);
 
+            contextMenu.Items.Add(new ToolStripMenuItem("重置密钥",
+                IconChar.Key.ToBitmap(IconFont.Solid, 16, Color.Black),
+                (sender, args) => KeyHandler.DeleteRSAKeys()));
+
             contextMenu.Items.Add(new ToolStripMenuItem("问题反馈",
                 IconChar.Question.ToBitmap(IconFont.Solid, 16, Color.Black),
                 (sender, args) => FeedbackHandler.OpenFeedbackUrl()));

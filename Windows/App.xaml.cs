@@ -64,6 +64,8 @@ namespace OTPAutoForward
                 _notifyIconHandler = scope.Resolve<NotifyIconHandler>();
                 var webSocketHandler = scope.Resolve<WebSocketHandler>();
 
+                KeyHandler.SetNotifyIconHandler(_notifyIconHandler);
+
                 if (!CheckWebSocketPort(AppSettings.WebSocketPort))
                 {
                     MessageBox.Show($"启动失败，端口 {AppSettings.WebSocketPort} 已被占用！", "端口异常",

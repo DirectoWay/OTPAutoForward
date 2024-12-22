@@ -2,6 +2,7 @@
 using System.Text;
 using System;
 using System.IO;
+using System.Windows;
 using Microsoft.Data.Sqlite;
 using Org.BouncyCastle.Crypto;
 using Org.BouncyCastle.Crypto.Generators;
@@ -29,12 +30,19 @@ namespace OTPAutoForward.ServiceHandler
         /** Win 端的固定公钥 */
         public static readonly string WindowsPublicKey;
 
+        private static NotifyIconHandler _notifyIconHandler;
+
         static KeyHandler()
         {
             var rsaKeys = LoadRSAKeys();
             PrivateKey = rsaKeys.PrivateKey;
             WindowsPublicKey = rsaKeys.PublicKey;
             Console.WriteLine("密钥对已初始化");
+        }
+
+        public static void SetNotifyIconHandler(NotifyIconHandler notifyIconHandler)
+        {
+            _notifyIconHandler = notifyIconHandler;
         }
 
         /// <summary>
@@ -118,12 +126,55 @@ namespace OTPAutoForward.ServiceHandler
         /** 删除数据库中的公钥和私钥 */
         public static void DeleteRSAKeys()
         {
-            using (var connection = new SqliteConnection($"Data Source={DatabasePath}"))
+            var result = MessageBox.Show("确定要重置密钥吗？重置密钥后需要重新在 App 中进行配对\n如果您的程序可以正常运行, 请不要重置密钥", "确认重置",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning);
+            if (result == MessageBoxResult.No)
             {
-                connection.Open();
-                var deleteCommand = new SqliteCommand($"DELETE FROM {TableName}", connection);
-                deleteCommand.ExecuteNonQuery();
+                return;
             }
+
+            try
+            {
+                using (var connection = new SqliteConnection($"Data Source={DatabasePath}"))
+                {
+                    connection.Open();
+                    var deleteCommand = new SqliteCommand($"DELETE FROM {TableName}", connection);
+                    deleteCommand.ExecuteNonQuery();
+                }
+
+                var restartResult = MessageBox.Show("已经重置密钥! 程序将会自动重启, 请您在稍后在 App 端中进行重新配对", "重置密钥成功",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+                if (restartResult == MessageBoxResult.OK)
+                {
+                    RestartApplication();
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"重置密钥异常：{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                Console.WriteLine($"删除密钥对时发生异常: {ex.Message}");
+            }
+        }
+
+        /** 重启程序 */
+        private static void RestartApplication()
+        {
+            _notifyIconHandler.Dispose();
+            // 获取当前进程路径
+            var processModule = System.Diagnostics.Process.GetCurrentProcess().MainModule;
+            if (processModule != null)
+            {
+                var fileName = processModule.FileName;
+                var startInfo = new System.Diagnostics.ProcessStartInfo(fileName)
+                    { UseShellExecute = true, CreateNoWindow = true };
+                // 启动新实例
+                System.Diagnostics.Process.Start(startInfo);
+            }
+
+            // 关闭当前实例
+            Application.Current.Shutdown();
         }
 
         /// <summary>
