@@ -5,11 +5,14 @@ using System.Management;
 using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
+using log4net;
 
 namespace OTPAutoForward.ServiceHandler
 {
     public static class ConnectInfoHandler
     {
+        private static readonly ILog Log = LogManager.GetLogger(typeof(ConnectInfoHandler));
+
         /** 获取本机 IP 地址 */
         public static IPAddress GetLocalIP()
         {
@@ -18,14 +21,15 @@ namespace OTPAutoForward.ServiceHandler
                 using (var socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, 0))
                 {
                     socket.Connect("www.baidu.com", 80); // Ping一下百度的地址以获取IP
-                    var endPoint = socket.LocalEndPoint as IPEndPoint;
-                    if (endPoint == null) throw new Exception("无法获取本地IP地址的端点信息。");
-                    return endPoint.Address;
+                    if (socket.LocalEndPoint is IPEndPoint endPoint) return endPoint.Address;
+                    Log.Error("无法获取本地IP地址的端点信息。");
+                    throw new Exception("无法获取本地IP地址的端点信息。");
                 }
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"IPv4 地址匹配错误: {ex.Message}");
+                Log.Error($"IPv4 地址匹配错误: {ex.Message}");
                 return IPAddress.Any; // 使用默认 IP 地址（监听所有网络接口）
             }
         }
@@ -98,6 +102,7 @@ namespace OTPAutoForward.ServiceHandler
             catch (Exception ex)
             {
                 Console.WriteLine("获取设备类型失败: " + ex.Message);
+                Log.Warn("获取设备类型失败: " + ex.Message);
                 throw;
             }
 
@@ -120,6 +125,7 @@ namespace OTPAutoForward.ServiceHandler
             catch (Exception ex)
             {
                 Console.WriteLine("获取设备ID失败: " + ex.Message);
+                Log.Fatal("获取设备ID失败: " + ex.Message);
                 throw;
             }
 

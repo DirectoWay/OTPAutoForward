@@ -3,6 +3,7 @@ using System.Text;
 using System;
 using System.IO;
 using System.Windows;
+using log4net;
 using Microsoft.Data.Sqlite;
 using Org.BouncyCastle.Crypto;
 using Org.BouncyCastle.Crypto.Generators;
@@ -16,6 +17,8 @@ namespace OTPAutoForward.ServiceHandler
 {
     public static class KeyHandler
     {
+        private static readonly ILog Log = LogManager.GetLogger(typeof(KeyHandler));
+
         /** 对称加密密钥 */
         private const string Key = "autoCAPTCHA-encryptedKey";
 
@@ -38,6 +41,7 @@ namespace OTPAutoForward.ServiceHandler
             PrivateKey = rsaKeys.PrivateKey;
             WindowsPublicKey = rsaKeys.PublicKey;
             Console.WriteLine("密钥对已初始化");
+            Log.Info("密钥对已初始化");
         }
 
         public static void SetNotifyIconHandler(NotifyIconHandler notifyIconHandler)
@@ -155,6 +159,7 @@ namespace OTPAutoForward.ServiceHandler
             {
                 MessageBox.Show($"重置密钥异常：{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
                 Console.WriteLine($"删除密钥对时发生异常: {ex.Message}");
+                Log.Fatal($"删除密钥对时发生异常: {ex.Message}");
             }
         }
 
@@ -242,6 +247,7 @@ namespace OTPAutoForward.ServiceHandler
             catch (Exception ex)
             {
                 Console.WriteLine($"解密失败: {ex.Message}");
+                Log.Fatal($"AES 解密时发生异常: {ex.Message}");
                 throw;
             }
         }
@@ -303,7 +309,8 @@ namespace OTPAutoForward.ServiceHandler
             }
             catch (Exception e)
             {
-                Console.WriteLine(e);
+                Console.WriteLine($"AES 解密时发生异常: {e}");
+                Log.Fatal($"AES 解密时发生异常: {e}");
                 throw;
             }
         }

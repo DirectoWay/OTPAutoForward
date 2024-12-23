@@ -5,6 +5,8 @@ using System.Net.NetworkInformation;
 using System.Windows;
 using System.Windows.Threading;
 using Autofac;
+using log4net;
+using log4net.Config;
 using Microsoft.Extensions.Configuration;
 using OTPAutoForward.ServiceHandler;
 
@@ -22,6 +24,8 @@ namespace OTPAutoForward
 
         /** 托盘图标与托盘菜单栏 */
         private NotifyIconHandler _notifyIconHandler;
+
+        private static readonly ILog Log = LogManager.GetLogger(typeof(App));
 
         static App()
         {
@@ -54,6 +58,9 @@ namespace OTPAutoForward
         {
             base.OnStartup(e);
 
+            ConfigLog4Net();
+
+            // 配置依赖注入容器
             var builder = new ContainerBuilder();
             ConfigureContainer(builder);
             _container = builder.Build();
@@ -112,6 +119,35 @@ namespace OTPAutoForward
             }
         }
 
+        /** 配置 Log4Net */
+        private static void ConfigLog4Net()
+        {
+            var logDirectory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs");
+            if (!Directory.Exists(logDirectory))
+            {
+                Directory.CreateDirectory(logDirectory);
+            }
+
+            var logFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs\\AppLog.log");
+            GlobalContext.Properties["LogFileName"] = logFilePath;
+            XmlConfigurator.Configure(new FileInfo("Log4Net.config"));
+
+            Log.Info("Log4Net 已被初始化 -- 这是一条测试日志...");
+
+            var configFile = new FileInfo("Log4Net.config");
+            if (configFile.Exists)
+            {
+                XmlConfigurator.Configure(configFile);
+                Log.Info("Log4Net 配置文件已加载");
+            }
+            else
+            {
+                Console.WriteLine("未找到 Log4Net 配置文件");
+            }
+
+            Log.Info("当前日志文件路径为: " + Path.Combine(logDirectory, "AppLog.log"));
+        }
+
         /** 程序启动时初始化托盘图标 */
         private void InitializeNotifyIcon(NotifyIconHandler notifyIconHandler)
         {
@@ -167,7 +203,8 @@ namespace OTPAutoForward
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"端口检测异常：{ex.Message}");
+                Log.Error($"进行端口检测时发生异常：{ex.Message}");
+                Console.WriteLine($"进行端口检测时发生异常：{ex.Message}");
                 return false;
             }
         }

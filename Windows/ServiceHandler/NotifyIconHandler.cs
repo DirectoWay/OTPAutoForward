@@ -6,12 +6,15 @@ using System.Linq;
 using System.Windows.Forms;
 using Microsoft.Win32;
 using FontAwesome.Sharp;
+using log4net;
 
 namespace OTPAutoForward.ServiceHandler
 {
     /** 用于管理软件的托盘图标与托盘菜单 */
     public class NotifyIconHandler
     {
+        private static readonly ILog Log = LogManager.GetLogger(typeof(NotifyIconHandler));
+
         private NotifyIcon _notifyIcon;
         private Action _onRestoreWindow;
         private Action _onExitApplication;
@@ -24,6 +27,7 @@ namespace OTPAutoForward.ServiceHandler
             _onExitApplication = onExitApplication;
             if (!File.Exists(_iconPath))
             {
+                Log.Error($"托盘图标路径异常: {_iconPath}");
                 throw new FileNotFoundException($"无法找到托盘图标 '{_iconPath}'.");
             }
 
@@ -109,6 +113,7 @@ namespace OTPAutoForward.ServiceHandler
             catch (Exception ex)
             {
                 Console.WriteLine($"检查开机自启时发生异常: {ex.Message}");
+                Log.Error($"检查开机自启时发生异常: {ex.Message}");
                 return false;
             }
         }
@@ -126,6 +131,7 @@ namespace OTPAutoForward.ServiceHandler
             catch (Exception ex)
             {
                 Console.WriteLine($"允许开机自启时发生异常: {ex.Message}");
+                Log.Error($"允许开机自启时发生异常: {ex.Message}");
             }
         }
 
@@ -140,6 +146,7 @@ namespace OTPAutoForward.ServiceHandler
             catch (Exception ex)
             {
                 Console.WriteLine($"禁止开机自启时发生异常: {ex.Message}");
+                Log.Error($"禁止开机自启时发生异常: {ex.Message}");
             }
         }
 
@@ -183,6 +190,7 @@ namespace OTPAutoForward.ServiceHandler
             catch (Exception ex)
             {
                 Console.WriteLine($"操作注册表时发生异常: {ex.Message}");
+                Log.Error($"操作注册表时发生异常: {ex.Message}");
             }
         }
 

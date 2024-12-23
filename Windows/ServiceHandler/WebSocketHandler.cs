@@ -6,6 +6,7 @@ using System.Net.WebSockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using log4net;
 
 namespace OTPAutoForward.ServiceHandler
 {
@@ -13,6 +14,8 @@ namespace OTPAutoForward.ServiceHandler
     public class WebSocketHandler
     {
         private HttpListener _httpListener;
+
+        private static readonly ILog Log = LogManager.GetLogger(typeof(WebSocketHandler));
 
         /** WebSocket 服务的 IP 地址 */
         private readonly IPAddress _ipAddress = ConnectInfoHandler.GetLocalIP();
@@ -49,6 +52,7 @@ namespace OTPAutoForward.ServiceHandler
             {
                 if (_httpListener == null || !_httpListener.IsListening)
                 {
+                    Log.Warn("\"WebSocket 服务停止，尝试重新启动...");
                     Console.WriteLine("WebSocket 服务停止，尝试重新启动...");
                     await StartWebSocketServer();
                 }
@@ -61,6 +65,7 @@ namespace OTPAutoForward.ServiceHandler
         {
             if (_httpListener != null)
             {
+                Log.Info("WebSocket 服务器已在运行");
                 Console.WriteLine("WebSocket 服务器已在运行");
                 return;
             }
@@ -74,6 +79,7 @@ namespace OTPAutoForward.ServiceHandler
                     _httpListener.Prefixes.Add($"http://{_ipAddress}:{_port}/");
 
                     _httpListener.Start();
+                    Log.Info($"WebSocket 服务器已启动 - IP地址: {_ipAddress},监听端口: {_port}");
                     Console.WriteLine($"WebSocket 服务器已启动 - IP地址: {_ipAddress},监听端口: {_port}");
 
                     _ = MonitorWebSocketServer();
@@ -82,6 +88,7 @@ namespace OTPAutoForward.ServiceHandler
             }
             catch (Exception ex)
             {
+                Log.Fatal($"启动 WebSocket 服务器时发生错误: {ex.Message}");
                 Console.WriteLine($"启动 WebSocket 服务器时发生错误: {ex.Message}");
                 throw;
             }
@@ -107,6 +114,7 @@ namespace OTPAutoForward.ServiceHandler
                     }
                     else
                     {
+                        Log.Warn("收到非法的 WebSocket 请求");
                         Console.WriteLine(DateTime.Now + " - 收到非法的 WebSocket 请求");
                         context.Response.StatusCode = 401; // 未授权
                         context.Response.Close();
@@ -221,6 +229,7 @@ namespace OTPAutoForward.ServiceHandler
                         {
                             message = KeyHandler.DecryptString(message); // 解密 App 端发来的消息
                             Console.WriteLine(DateTime.Now + message);
+                            Log.Info("已收到来自 App 端的消息:" + message);
                             if (string.IsNullOrWhiteSpace(message))
                             {
                                 Console.WriteLine("收到空消息，忽略处理");
@@ -244,7 +253,8 @@ namespace OTPAutoForward.ServiceHandler
                             await webSocket.SendAsync(new ArraySegment<byte>(responseBuffer), WebSocketMessageType.Text,
                                 true,
                                 CancellationToken.None);
-                            Console.WriteLine($"{DateTime.Now}已发送确认消息 ");
+                            Console.WriteLine($"{DateTime.Now}已发送确认消息");
+                            Log.Info("已发送确认消息");
                         }
                     }
                 }
@@ -252,24 +262,29 @@ namespace OTPAutoForward.ServiceHandler
             catch (WebSocketException ex)
             {
                 Console.WriteLine($"WebSocket 异常: {ex.Message}");
+                Log.Error($"WebSocket 异常: {ex.Message}");
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"WebSocket 异常: {ex.Message}");
+                Log.Error($"WebSocket 异常: {ex.Message}");
             }
             finally
             {
                 if (webSocket.State != WebSocketState.Closed && webSocket.State != WebSocketState.Aborted)
                 {
                     Console.WriteLine($"WebSocket 当前状态: {webSocket.State}. 即将关闭连接...");
+                    Log.Info($"WebSocket 当前状态: {webSocket.State}. 即将关闭连接...");
                     await webSocket.CloseAsync(WebSocketCloseStatus.InternalServerError,
                         "WebSocket 连接异常中断", CancellationToken.None);
                     Console.WriteLine(
                         $"WebSocket 关闭状态: {webSocket.CloseStatus}, 描述: {webSocket.CloseStatusDescription}");
+                    Log.Info($"WebSocket 关闭状态: {webSocket.CloseStatus}, 描述: {webSocket.CloseStatusDescription}");
                 }
 
                 webSocket.Dispose();
                 Console.WriteLine("WebSocket 连接已关闭");
+                Log.Info("WebSocket 连接已关闭");
             }
         }
 
@@ -289,6 +304,7 @@ namespace OTPAutoForward.ServiceHandler
             if (_httpListener == null)
             {
                 Console.WriteLine("WebSocket 服务器未运行");
+                Log.Warn("WebSocket 服务器未运行");
                 return;
             }
 
@@ -300,11 +316,13 @@ namespace OTPAutoForward.ServiceHandler
                     _httpListener.Stop();
                     _httpListener = null;
                     Console.WriteLine("WebSocket 服务器已停止");
+                    Log.Warn("WebSocket 服务器已停止");
                 }
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"停止 WebSocket 服务器时发生错误: {ex.Message}");
+                Log.Error($"停止 WebSocket 服务器时发生错误: {ex.Message}");
             }
             finally
             {
