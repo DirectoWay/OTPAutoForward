@@ -128,13 +128,13 @@
 
             <!-- 设置项的 CardView  -->
             <androidx.cardview.widget.CardView
-                android:id="@+id/view_forward_screenoff"
+                android:id="@+id/view_settings"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 app:cardBackgroundColor="@color/white"
                 app:cardCornerRadius="20dp"
                 app:cardElevation="0.25dp"
-                app:layout_constraintBottom_toTopOf="@+id/view_device_info"
+                app:layout_constraintBottom_toTopOf="@+id/view_device_name"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toTopOf="parent">
@@ -253,7 +253,7 @@
                         android:id="@+id/text_forward_onlyOTP"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
-                        android:layout_marginBottom="25dp"
+                        android:layout_marginBottom="20dp"
                         android:text="关闭后将转发非验证码短信"
                         android:textSize="13sp"
                         app:layout_constraintBottom_toBottomOf="parent"
@@ -265,19 +265,18 @@
                 </androidx.constraintlayout.widget.ConstraintLayout>
             </androidx.cardview.widget.CardView>
 
-            <!-- 设备信息的 CardView -->
-            <androidx.cardview.widget.CardView
-                android:id="@+id/view_device_info"
+            <!-- 设备名称的 CardView -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/view_device_name"
                 android:layout_width="match_parent"
-                android:layout_height="140dp"
+                android:layout_height="65dp"
                 android:layout_marginTop="15dp"
                 app:cardBackgroundColor="@color/white"
-                app:cardCornerRadius="20dp"
-                app:cardElevation="0.25dp"
-                app:layout_constraintBottom_toTopOf="@id/view_qr_pair"
+                app:layout_constraintBottom_toTopOf="@id/view_device_ip"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@id/view_forward_screenoff">
+                app:layout_constraintTop_toBottomOf="@id/view_settings"
+                app:shapeAppearanceOverlay="@style/CustomShapeAppearance1">
 
                 <androidx.constraintlayout.widget.ConstraintLayout
                     android:layout_width="match_parent"
@@ -287,31 +286,20 @@
                         android:id="@+id/icon_device_name"
                         android:layout_width="30dp"
                         android:layout_height="30dp"
-                        android:layout_marginStart="30dp"
+                        android:layout_marginStart="25dp"
                         android:src="@drawable/baseline_phone_iphone_24"
-                        app:layout_constraintBottom_toTopOf="@id/icon_device_ip"
-                        app:layout_constraintEnd_toStartOf="@id/text_device_name"
-                        app:layout_constraintStart_toStartOf="parent"
-                        app:layout_constraintTop_toTopOf="parent"
-                        app:tint="#0F826E" />
-
-                    <ImageView
-                        android:id="@+id/icon_device_ip"
-                        android:layout_width="30dp"
-                        android:layout_height="30dp"
-                        android:layout_marginStart="30dp"
-                        android:src="@drawable/baseline_wifi_24"
                         app:layout_constraintBottom_toBottomOf="parent"
                         app:layout_constraintStart_toStartOf="parent"
-                        app:layout_constraintTop_toBottomOf="@id/icon_device_name"
+                        app:layout_constraintTop_toTopOf="parent"
+                        app:layout_constraintVertical_bias="0.6"
                         app:tint="#0F826E" />
 
                     <TextView
                         android:id="@+id/text_device_name"
                         android:layout_width="0dp"
-                        android:layout_height="wrap_content"
+                        android:layout_height="0dp"
                         android:layout_marginStart="25dp"
-                        android:layout_marginTop="15dp"
+                        android:layout_marginTop="7.5dp"
                         android:text="设备名称"
                         android:textColor="#808080"
                         android:textSize="17sp"
@@ -324,29 +312,60 @@
                     <TextView
                         android:id="@+id/deviceName"
                         android:layout_width="0dp"
-                        android:layout_height="wrap_content"
+                        android:layout_height="0dp"
                         android:text="设备名称检测失败"
                         android:textColor="#808080"
                         android:textSize="14sp"
-                        app:layout_constraintBottom_toTopOf="@id/text_device_ip"
+                        app:layout_constraintBottom_toBottomOf="parent"
                         app:layout_constraintEnd_toEndOf="parent"
                         app:layout_constraintStart_toStartOf="@id/text_device_name"
                         app:layout_constraintTop_toBottomOf="@id/text_device_name"
                         tools:ignore="HardcodedText" />
+                </androidx.constraintlayout.widget.ConstraintLayout>
+
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- 设备 IP 地址的 CardView -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/view_device_ip"
+                android:layout_width="match_parent"
+                android:layout_height="65dp"
+                app:cardBackgroundColor="@color/white"
+                app:layout_constraintBottom_toTopOf="@id/view_qr_pair"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@id/view_device_name"
+                app:shapeAppearanceOverlay="@style/CustomShapeAppearance2">
+
+                <androidx.constraintlayout.widget.ConstraintLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent">
+
+                    <ImageView
+                        android:id="@+id/icon_device_ip"
+                        android:layout_width="30dp"
+                        android:layout_height="30dp"
+                        android:layout_marginStart="25dp"
+                        android:src="@drawable/baseline_wifi_24"
+                        app:layout_constraintBottom_toBottomOf="parent"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toTopOf="parent"
+                        app:layout_constraintVertical_bias="0.4"
+                        app:tint="#0F826E" />
 
                     <TextView
                         android:id="@+id/text_device_ip"
                         android:layout_width="0dp"
-                        android:layout_height="wrap_content"
+                        android:layout_height="0dp"
                         android:layout_marginStart="25dp"
-                        android:layout_marginTop="15dp"
+                        android:layout_marginTop="5dp"
                         android:text="设备IP地址"
                         android:textColor="#808080"
                         android:textSize="17sp"
                         app:layout_constraintBottom_toTopOf="@id/deviceIPAddress"
                         app:layout_constraintEnd_toEndOf="parent"
                         app:layout_constraintStart_toEndOf="@id/icon_device_ip"
-                        app:layout_constraintTop_toBottomOf="@id/deviceName"
+                        app:layout_constraintTop_toTopOf="parent"
                         tools:ignore="HardcodedText" />
 
                     <TextView
@@ -361,22 +380,9 @@
                         app:layout_constraintStart_toStartOf="@id/text_device_ip"
                         app:layout_constraintTop_toBottomOf="@id/text_device_ip"
                         tools:ignore="HardcodedText" />
-
-                    <androidx.constraintlayout.widget.Guideline
-                        android:id="@+id/guideline"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:orientation="vertical"
-                        app:layout_constraintGuide_begin="20dp" />
-
-                    <androidx.constraintlayout.widget.Guideline
-                        android:id="@+id/guideline2"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:orientation="horizontal"
-                        app:layout_constraintGuide_begin="20dp" />
                 </androidx.constraintlayout.widget.ConstraintLayout>
-            </androidx.cardview.widget.CardView>
+
+            </com.google.android.material.card.MaterialCardView>
 
             <!-- 扫码配对的 CardView -->
             <com.google.android.material.card.MaterialCardView
@@ -388,7 +394,7 @@
                 app:layout_constraintBottom_toTopOf="@id/pairModeLine"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@id/view_device_info"
+                app:layout_constraintTop_toBottomOf="@id/view_device_ip"
                 app:shapeAppearanceOverlay="@style/CustomShapeAppearance1">
 
                 <androidx.constraintlayout.widget.ConstraintLayout
@@ -413,7 +419,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginStart="25dp"
-                        android:layout_marginTop="7.5dp"
+                        android:layout_marginTop="10dp"
                         android:text="使用二维码配对设备"
                         android:textColor="@color/black"
                         android:textSize="17sp"
@@ -482,7 +488,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginStart="25dp"
-                        android:layout_marginTop="7.5dp"
+                        android:layout_marginTop="10dp"
                         android:text="使用配对码配对设备"
                         android:textColor="@color/black"
                         android:textSize="17sp"

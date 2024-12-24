@@ -16,11 +16,14 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.os.VibrationEffect
+import android.os.Vibrator
 import android.provider.Settings
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.view.animation.AccelerateDecelerateInterpolator
 import android.view.animation.Animation
 import android.view.animation.AnimationUtils
 import android.widget.ImageView
@@ -78,8 +81,47 @@ class MainFragment : Fragment() {
                 }
             }
 
+        // 晃动手机图标动画效果
+        binding.viewDeviceName.setOnClickListener {
+            val rotateAnimator = ObjectAnimator.ofFloat(
+                binding.iconDeviceName, "rotation", 0f, 30f, -30f, 15f, -15f, 0f
+            )
+
+            rotateAnimator.duration = 500
+            rotateAnimator.addUpdateListener { animation ->
+                val progress = animation.animatedFraction
+                if (progress >= 0.3 && progress < 0.4) { // 动画播放到一半时震动
+                    val vibrator =
+                        ContextCompat.getSystemService(binding.root.context, Vibrator::class.java)
+                    vibrator?.vibrate(
+                        VibrationEffect.createOneShot(
+                            100,
+                            VibrationEffect.DEFAULT_AMPLITUDE
+                        )
+                    )
+                }
+            }
+            rotateAnimator.start()
+        }
+
+        // WiFi 图标逐级递增动画效果
+        binding.viewDeviceIp.setOnClickListener {
+            val handler = Handler(Looper.getMainLooper())
+            val updateIcon = Runnable {
+                binding.iconDeviceIp.setImageResource(R.drawable.baseline_wifi_1_bar_24)
+                handler.postDelayed({
+                    binding.iconDeviceIp.setImageResource(R.drawable.baseline_wifi_2_bar_24)
+                    handler.postDelayed(
+                        { binding.iconDeviceIp.setImageResource(R.drawable.baseline_wifi_24) }, 300
+                    )
+                }, 300)
+            }
+            handler.post(updateIcon)
+        }
+
         // 初始化配对按钮点击事件
         binding.viewQrPair.setOnClickListener { checkCameraPermission() }
+        binding.viewQrPair.elevation = 0f
         binding.viewCodePair.setOnClickListener { view ->
             Snackbar.make(view, "功能暂未开通", Snackbar.LENGTH_LONG).setAction("Action", null)
                 .setAnchorView(R.id.fab).show()
@@ -95,7 +137,6 @@ class MainFragment : Fragment() {
         val deviceIPAddress = globalHandler.getDeviceIPAddress(requireContext())
         binding.deviceName.text = deviceName
         binding.deviceIPAddress.text = deviceIPAddress
-        binding.viewQrPair.elevation = 0f
 
         // 观察页面上开关的变化
         settingsViewModel = ViewModelProvider(requireActivity())[SettingsViewModel::class.java]
@@ -105,8 +146,7 @@ class MainFragment : Fragment() {
             binding.switchForwardScreenoff.isChecked = settings[SettingKey.ScreenLocked.key] ?: true
             binding.switchSyncDoNotDisturb.isChecked =
                 settings[SettingKey.SyncDoNotDistribute.key] ?: true
-            binding.switchForwardOnlyOTP.isChecked =
-                settings[SettingKey.ForwardOnlyOTP.key] ?: true
+            binding.switchForwardOnlyOTP.isChecked = settings[SettingKey.ForwardOnlyOTP.key] ?: true
         }
 
         settingsViewModel.refreshPairedDevice.observe(viewLifecycleOwner) {
@@ -134,10 +174,8 @@ class MainFragment : Fragment() {
             ContextCompat.checkSelfPermission(
                 requireContext(), Manifest.permission.CAMERA
             ) == PackageManager.PERMISSION_GRANTED -> {
-                val intent =
-                    Intent(activity, CaptureQRCodeActivity::class.java)
-                // 有相机权限直接启动扫码Activity
-                qrCodeLauncher.launch(intent)
+                // 有相机权限直接启动扫码 Activity
+                startQRCodeActivity(binding.iconQrPair)
             }
 
             // 用户页面弹出对话框申请权限
@@ -146,26 +184,23 @@ class MainFragment : Fragment() {
             }
 
             // 没有相机权限则请求权限
-            else -> /*handlePermissionPermanentlyDenied()*/requestCameraPermissionLauncher.launch(
+            else -> requestCameraPermissionLauncher.launch(
                 Manifest.permission.CAMERA
             )
         }
     }
 
     private fun showPermissionRationaleDialog() {
-        AlertDialog.Builder(requireContext())
-            .setTitle("相机权限")
-            .setMessage("请授予相机权限用于扫描二维码").setPositiveButton("授予权限")
-            { dialog, _ ->
+        AlertDialog.Builder(requireContext()).setTitle("相机权限")
+            .setMessage("请授予相机权限用于扫描二维码").setPositiveButton("授予权限") { dialog, _ ->
                 dialog.dismiss()
                 requestCameraPermissionLauncher.launch(Manifest.permission.CAMERA)
-            }
-            .setNegativeButton("拒绝") { dialog, _ -> dialog.dismiss() }.show()
+            }.setNegativeButton("拒绝") { dialog, _ -> dialog.dismiss() }.show()
     }
 
+    /** 相机权限被手动拒绝时跳转至设置页面 */
     private fun handlePermissionPermanentlyDenied() {
-        AlertDialog.Builder(requireContext())
-            .setTitle("需要相机权限")
+        AlertDialog.Builder(requireContext()).setTitle("需要相机权限")
             .setMessage("相机权限被拒绝, 请前往设置授予权限")
             .setPositiveButton("去设置") { dialog, _ ->
                 dialog.dismiss()
@@ -173,8 +208,7 @@ class MainFragment : Fragment() {
                     data = Uri.fromParts("package", requireContext().packageName, null)
                 }
                 startActivity(intent)
-            }
-            .setNegativeButton("取消") { dialog, _ -> dialog.dismiss() }.show()
+            }.setNegativeButton("取消") { dialog, _ -> dialog.dismiss() }.show()
     }
 
     /** 请求相机权限 */
@@ -214,8 +248,7 @@ class MainFragment : Fragment() {
             } ?: AlertDialog.Builder(requireContext()).setTitle("配对失败")
                 .setMessage("二维码解析失败")
                 .setPositiveButton("确定") { dialog, _ -> dialog.dismiss() }.show()
-        } ?: AlertDialog.Builder(requireContext()).setTitle("配对失败")
-            .setMessage("二维码数据为空")
+        } ?: AlertDialog.Builder(requireContext()).setTitle("配对失败").setMessage("二维码数据为空")
             .setPositiveButton("确定") { dialog, _ -> dialog.dismiss() }.show()
     }
 
@@ -248,9 +281,7 @@ class MainFragment : Fragment() {
             } else {
                 collapseAnimation()
                 animateIconChange(
-                    binding.iconSms,
-                    R.drawable.outline_mail_lock_24,
-                    Color.parseColor("#808080")
+                    binding.iconSms, R.drawable.outline_mail_lock_24, Color.parseColor("#808080")
                 )
             }
         }
@@ -496,6 +527,47 @@ class MainFragment : Fragment() {
             (view as? CardView)?.setCardBackgroundColor(animator.animatedValue as Int)
         }
         colorAnimation.start()
+    }
+
+    /** 开始扫描二维码 */
+    private fun startQRCodeActivity(view: View) {
+        // 放大动画
+        val scaleXUp = ObjectAnimator.ofFloat(view, "scaleX", 1f, 1.25f)
+        val scaleYUp = ObjectAnimator.ofFloat(view, "scaleY", 1f, 1.25f)
+        // 缩小动画
+        val scaleXDown = ObjectAnimator.ofFloat(view, "scaleX", 1.2f, 1f)
+        val scaleYDown = ObjectAnimator.ofFloat(view, "scaleY", 1.2f, 1f)
+        // 插值器
+        scaleXUp.interpolator = AccelerateDecelerateInterpolator()
+        scaleYUp.interpolator = AccelerateDecelerateInterpolator()
+        scaleXDown.interpolator = AccelerateDecelerateInterpolator()
+        scaleYDown.interpolator = AccelerateDecelerateInterpolator()
+
+        // 放大动画时长
+        scaleXUp.duration = 250
+        scaleYUp.duration = 250
+
+        // 缩小动画时长
+        scaleXDown.duration = 200
+        scaleYDown.duration = 200
+
+        // 合并动画
+        val animatorSet = AnimatorSet()
+        animatorSet.play(scaleXUp).with(scaleYUp)
+        // 同时播放放大动画
+        animatorSet.play(scaleXDown).after(scaleXUp)
+        // 放大动画结束后播放缩小动画
+        animatorSet.play(scaleYDown).after(scaleYUp)
+        // 启动动画
+        animatorSet.start()
+        // 在动画结束时启动扫码 Activity
+        animatorSet.addListener(object : AnimatorListenerAdapter() {
+            override fun onAnimationEnd(animation: Animator) {
+
+                val intent = Intent(activity, CaptureQRCodeActivity::class.java)
+                qrCodeLauncher.launch(intent)
+            }
+        })
     }
 
     override fun onDestroyView() {
