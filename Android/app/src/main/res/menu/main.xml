@@ -10,6 +10,13 @@
         tools:ignore="HardcodedText" />
 
     <item
+        android:id="@+id/action_qa"
+        android:orderInCategory="100"
+        android:title="常见问题"
+        app:showAsAction="never"
+        tools:ignore="HardcodedText" />
+
+    <item
         android:id="@+id/action_feedback"
         android:orderInCategory="100"
         android:title="问题反馈"
