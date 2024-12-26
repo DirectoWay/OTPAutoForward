@@ -49,40 +49,44 @@ class JsonHandler(private val context: Context) {
     }
 
     fun formatQAJson(jsonString: String): SpannableString {
-        val jsonObject = JSONObject(jsonString)
-        val qaObject = jsonObject.getJSONObject("qa")
-        val stringBuilder = StringBuilder()
+        return try {
+            val jsonObject = JSONObject(jsonString)
+            val qaObject = jsonObject.getJSONObject("qa")
+            val stringBuilder = StringBuilder()
 
-        val spans = mutableListOf<Pair<Int, Int>>()
+            val spans = mutableListOf<Pair<Int, Int>>()
 
-        qaObject.keys().forEach { key ->
-            val value = qaObject.getString(key)
-            val questionOrAnswer = if (key.startsWith("问")) {
-                "$key：$value\n"
-            } else {
-                "$key：$value\n\n"
+            qaObject.keys().forEach { key ->
+                val value = qaObject.getString(key)
+                val questionOrAnswer = if (key.startsWith("问")) {
+                    "$key：$value\n"
+                } else {
+                    "$key：$value\n\n"
+                }
+
+                val start = stringBuilder.length
+                stringBuilder.append(questionOrAnswer)
+                val end = stringBuilder.length
+
+                if (key.startsWith("问")) {
+                    spans.add(start to end - 1)
+                }
             }
 
-            val start = stringBuilder.length
-            stringBuilder.append(questionOrAnswer)
-            val end = stringBuilder.length
+            val formattedString = SpannableString(stringBuilder.toString())
 
-            if (key.startsWith("问")) {
-                spans.add(start to end - 1)
+            spans.forEach { (start, end) ->
+                formattedString.setSpan(
+                    ForegroundColorSpan(Color.BLACK),
+                    start,
+                    end,
+                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+                )
             }
+
+            formattedString
+        } catch (e: Exception) {
+            SpannableString("暂无数据")
         }
-
-        val formattedString = SpannableString(stringBuilder.toString())
-
-        spans.forEach { (start, end) ->
-            formattedString.setSpan(
-                ForegroundColorSpan(Color.BLACK),
-                start,
-                end,
-                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-            )
-        }
-
-        return formattedString
     }
 }
