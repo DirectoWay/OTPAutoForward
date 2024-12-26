@@ -47,7 +47,14 @@ class GlobalHandler {
         return null
     }
 
-    /** 局域网中获取在线的设备 */
+    /** 模拟获取局域网中在线的设备 */
+    fun getOnlineDevicesTest(): List<String> {
+        val devices = mutableListOf<String>()
+        val websocketUrl = "ws://192.168.1.107:9224"
+        devices.add(websocketUrl)
+        return devices
+    }
+
     suspend fun getOnlineDevices(targetPort: Int): List<String> {
         val localNetworkPrefix = getLocalNetworkPrefix()
         val devices = mutableListOf<String>()
