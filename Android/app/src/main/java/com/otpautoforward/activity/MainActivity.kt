@@ -165,7 +165,7 @@ class MainActivity : AppCompatActivity() {
     private fun batteryOpti() {
         val builder = AlertDialog.Builder(this)
         builder.setTitle("电池优化白名单请求")
-            .setMessage("请允许 App 的省电策略被设置为无限制或不受限制, 以免息屏后无法进行短信转发")
+            .setMessage("请允许 App 的省电策略被设置为无限制或不受限制, 以免息屏后无法进行短信转发\n\n如果您已经进行过相关设置, 请无视该弹窗")
             .setPositiveButton("去设置") { _, _ ->
                 val intent = Intent().apply {
                     action = Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS
