@@ -566,14 +566,12 @@ class MainFragment : Fragment() {
         animatorSet.play(scaleYDown).after(scaleYUp)
         // 启动动画
         animatorSet.start()
-        // 在动画结束时启动扫码 Activity
-        animatorSet.addListener(object : AnimatorListenerAdapter() {
-            override fun onAnimationEnd(animation: Animator) {
 
-                val intent = Intent(activity, CaptureQRCodeActivity::class.java)
-                qrCodeLauncher.launch(intent)
-            }
-        })
+        Handler(Looper.getMainLooper()).postDelayed({
+            val intent =
+                Intent(activity, CaptureQRCodeActivity::class.java)
+            qrCodeLauncher.launch(intent)
+        }, 200)
     }
 
     override fun onDestroyView() {
