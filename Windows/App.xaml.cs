@@ -3,8 +3,8 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net.NetworkInformation;
+using System.Security.Principal;
 using System.Windows;
-using System.Windows.Threading;
 using Autofac;
 using log4net;
 using log4net.Config;
@@ -61,6 +61,8 @@ namespace OTPAutoForward
 
             ConfigLog4Net();
 
+            CheckAdministrator();
+
             OpenFirewallPort(AppSettings.WebSocketPort);
 
             // 配置依赖注入容器
@@ -76,18 +78,12 @@ namespace OTPAutoForward
 
                 KeyHandler.SetNotifyIconHandler(_notifyIconHandler);
 
+                
                 if (!CheckWebSocketPort(AppSettings.WebSocketPort))
                 {
                     MessageBox.Show($"启动失败，端口 {AppSettings.WebSocketPort} 已被占用！", "端口异常",
                         MessageBoxButton.OK, MessageBoxImage.Error);
-
-                    var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
-                    timer.Tick += (sender, args) =>
-                    {
-                        timer.Stop();
-                        Shutdown();
-                    };
-                    timer.Start();
+                    Shutdown();
                     return;
                 }
 
@@ -97,14 +93,8 @@ namespace OTPAutoForward
                     MessageBox.Show("启动失败，WebSocket 服务启动失败", "核心服务异常",
                         MessageBoxButton.OK, MessageBoxImage.Error);
 
-                    var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
-                    timer.Tick += (sender, args) =>
-                    {
-                        timer.Stop();
-                        _notifyIconHandler.Dispose();
-                        Shutdown();
-                    };
-                    timer.Start();
+                    _notifyIconHandler.Dispose();
+                    Shutdown();
                 });
 
                 InitializeNotifyIcon(_notifyIconHandler);
@@ -151,6 +141,19 @@ namespace OTPAutoForward
             Log.Info("当前日志文件路径为: " + Path.Combine(logDirectory, "AppLog.log"));
         }
 
+        /** 判断当前运行环境是否有管理员权限 */
+        private void CheckAdministrator()
+        {
+            var identity = WindowsIdentity.GetCurrent();
+            var principal = new WindowsPrincipal(identity);
+            var isAdministrator = principal.IsInRole(WindowsBuiltInRole.Administrator);
+            if (isAdministrator) return;
+            MessageBox.Show("该程序的运行需要开放防火墙端口, 使用 WebSocket 服务\n请您联系管理员获取权限后再进行重试", "缺少管理员权限", MessageBoxButton.OK,
+                MessageBoxImage.Error);
+            Log.Fatal("缺少管理员权限, 程序被迫终止");
+            Shutdown();
+        }
+
         /** 开放防火墙端口 */
         private void OpenFirewallPort(int port)
         {
@@ -175,6 +178,7 @@ namespace OTPAutoForward
                 checkProcess.WaitForExit();
                 if (checkOutput.Contains(port.ToString()))
                 {
+                    Log.Info("防火墙端口已开放");
                     return;
                 }
 
@@ -198,6 +202,7 @@ namespace OTPAutoForward
                 if (addProcess.ExitCode == 0)
                 {
                     MessageBox.Show($"端口 {port} 已成功开放。", "防火墙配置成功", MessageBoxButton.OK, MessageBoxImage.Information);
+                    Log.Info("防火墙端口已开放");
                 }
                 else
                 {
