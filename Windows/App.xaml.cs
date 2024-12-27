@@ -78,7 +78,7 @@ namespace OTPAutoForward
 
                 KeyHandler.SetNotifyIconHandler(_notifyIconHandler);
 
-                
+
                 if (!CheckWebSocketPort(AppSettings.WebSocketPort))
                 {
                     MessageBox.Show($"启动失败，端口 {AppSettings.WebSocketPort} 已被占用！", "端口异常",
@@ -159,9 +159,6 @@ namespace OTPAutoForward
         {
             try
             {
-                // 获取当前程序的 exe 文件路径
-                var exePath = Process.GetCurrentProcess().MainModule?.FileName ?? AppSettings.AppName;
-
                 // 先检查防火墙规则是否已经存在
                 var checkProcess = new Process
                 {
@@ -189,7 +186,7 @@ namespace OTPAutoForward
                     {
                         FileName = "netsh",
                         Arguments =
-                            $"advfirewall firewall add rule name=\"{AppSettings.AppName}\" dir=in action=allow protocol=TCP localport={port} profile=private program=\"{exePath}\"",
+                            $"advfirewall firewall add rule name=\"{AppSettings.AppName}\" dir=in action=allow protocol=TCP localport={port} profile=any",
                         RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false,
                         CreateNoWindow = true,
                     }
