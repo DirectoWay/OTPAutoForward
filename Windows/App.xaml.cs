@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net.NetworkInformation;
@@ -59,6 +60,8 @@ namespace OTPAutoForward
             base.OnStartup(e);
 
             ConfigLog4Net();
+
+            OpenFirewallPort(AppSettings.WebSocketPort);
 
             // 配置依赖注入容器
             var builder = new ContainerBuilder();
@@ -146,6 +149,71 @@ namespace OTPAutoForward
             }
 
             Log.Info("当前日志文件路径为: " + Path.Combine(logDirectory, "AppLog.log"));
+        }
+
+        /** 开放防火墙端口 */
+        private void OpenFirewallPort(int port)
+        {
+            try
+            {
+                // 获取当前程序的 exe 文件路径
+                var exePath = Process.GetCurrentProcess().MainModule?.FileName ?? AppSettings.AppName;
+
+                // 先检查防火墙规则是否已经存在
+                var checkProcess = new Process
+                {
+                    StartInfo = new ProcessStartInfo
+                    {
+                        FileName = "netsh",
+                        Arguments = $"advfirewall firewall show rule name=\"{AppSettings.AppName}\"",
+                        RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false,
+                        CreateNoWindow = true,
+                    }
+                };
+                checkProcess.Start();
+                var checkOutput = checkProcess.StandardOutput.ReadToEnd();
+                checkProcess.WaitForExit();
+                if (checkOutput.Contains(port.ToString()))
+                {
+                    return;
+                }
+
+                // 防火墙规则不存在, 新建一条规则
+                var addProcess = new Process
+                {
+                    StartInfo = new ProcessStartInfo
+                    {
+                        FileName = "netsh",
+                        Arguments =
+                            $"advfirewall firewall add rule name=\"{AppSettings.AppName}\" dir=in action=allow protocol=TCP localport={port} profile=private program=\"{exePath}\"",
+                        RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false,
+                        CreateNoWindow = true,
+                    }
+                };
+                addProcess.Start();
+                var addError = addProcess.StandardError.ReadToEnd();
+                addProcess.WaitForExit();
+
+                // 处理结果
+                if (addProcess.ExitCode == 0)
+                {
+                    MessageBox.Show($"端口 {port} 已成功开放。", "防火墙配置成功", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+                else
+                {
+                    MessageBox.Show($"无法开放端口 {port}，错误信息: {addError}", "防火墙配置错误", MessageBoxButton.OK,
+                        MessageBoxImage.Error);
+                    Log.Fatal($"无法开放端口 {port}，错误信息: {addError}");
+                    Shutdown();
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"无法开放端口 {port}，错误信息: {ex.Message}", "防火墙配置错误", MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+                Log.Fatal($"无法开放端口 {port}，错误信息: {ex.Message}");
+                Shutdown();
+            }
         }
 
         /** 程序启动时初始化托盘图标 */
