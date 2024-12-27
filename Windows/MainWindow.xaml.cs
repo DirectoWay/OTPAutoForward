@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Windows;
+using log4net;
 using Microsoft.Toolkit.Uwp.Notifications;
 using OTPAutoForward.ServiceHandler;
 using Clipboard = System.Windows.Clipboard;
@@ -16,6 +17,7 @@ namespace OTPAutoForward
     public partial class MainWindow
     {
         private readonly WebSocketHandler _webSocketHandler;
+        private static readonly ILog Log = LogManager.GetLogger(typeof(MainWindow));
 
         public MainWindow(WebSocketHandler webSocketHandler)
         {
@@ -159,16 +161,26 @@ namespace OTPAutoForward
             });
         }
 
-        /** 配对按钮: 获取配对用的二维码 */
         private System.Timers.Timer _timer;
 
+        /** 配对按钮: 获取配对用的二维码 */
         private void GetQRCode(object sender, RoutedEventArgs e)
         {
-            var qrData = QRCodeHandler.GenerateEncryptedQRCode();
-            var qrCodeImage = QRCodeHandler.GenerateQrCodeImage(qrData, 500, 500);
+            try
+            {
+                var qrData = QRCodeHandler.GenerateEncryptedQRCode();
+                var qrCodeImage = QRCodeHandler.GenerateQrCodeImage(qrData, 500, 500);
 
-            QrCodeImage.Source = qrCodeImage;
-            QrCodeImage.Visibility = Visibility.Visible;
+                QrCodeImage.Source = qrCodeImage;
+                QrCodeImage.Visibility = Visibility.Visible;
+            }
+
+            catch (Exception ex)
+            {
+                Log.Error("生成二维码时发生异常: " + ex);
+                MessageBox.Show("生成二维码时发生异常\n请重置密钥后再进行尝试",
+                    "二维码异常", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
 
             // 过一段时间后自动收起二维码
             if (_timer != null)
