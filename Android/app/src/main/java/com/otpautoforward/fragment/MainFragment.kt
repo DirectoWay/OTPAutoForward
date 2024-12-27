@@ -271,6 +271,12 @@ class MainFragment : Fragment() {
     private fun switchListener() {
         binding.switchSms.setOnCheckedChangeListener { _, isChecked ->
             settingsViewModel.updateSetting(SettingKey.SmsEnabled.key, isChecked)
+
+            // 短震动效果
+            val vibrator =
+                ContextCompat.getSystemService(binding.root.context, Vibrator::class.java)
+            vibrator?.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 30), -1))
+
             if (isChecked) {
                 expandAnimation()
                 animateIconChange(

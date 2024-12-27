@@ -21,6 +21,8 @@ import android.graphics.Color
 import android.net.Uri
 import android.os.Build
 import android.os.PowerManager
+import android.os.VibrationEffect
+import android.os.Vibrator
 import android.view.MenuItem
 import android.view.animation.AnticipateOvershootInterpolator
 import android.view.animation.DecelerateInterpolator
@@ -42,6 +44,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.lifecycle.lifecycleScope
 import com.otpautoforward.handler.JsonHandler
 import kotlinx.coroutines.launch
+import androidx.core.content.ContextCompat.getSystemService
 
 private const val testMessage =
     "【测试短信】尾号为1234的用户您好, 987123 是您的验证码, 这是一条测试短信"
@@ -273,6 +276,8 @@ class MainActivity : AppCompatActivity() {
 
     /** 播放导航图标动画 */
     private fun animateNavIcon() {
+        val vibrator = getSystemService(this@MainActivity, Vibrator::class.java)
+
         // 导航图标起始位置
         val navIconView = toolbar.getChildAt(1) as? ImageView ?: return
         val startX = navIconView.x
@@ -281,10 +286,17 @@ class MainActivity : AppCompatActivity() {
         isAnimating = true
 
         // 抖动动画
-        val shakeAnimator1 = ObjectAnimator.ofFloat(
-            navIconView, "translationX", 0f, 2f, -2f, 2f, -2f, 1f, -1f, 0f
-        )
+        val lightVibrationPattern = longArrayOf(0, 50) // 短震动效果
+        val shakeAnimator1 =
+            ObjectAnimator.ofFloat(navIconView, "translationX", 0f, 2f, -2f, 2f, -2f, 1f, -1f, 0f)
         shakeAnimator1.duration = 300
+        shakeAnimator1.addListener(object : AnimatorListenerAdapter() {
+            override fun onAnimationStart(animation: Animator) {
+                vibrator?.vibrate(
+                    VibrationEffect.createWaveform(lightVibrationPattern, -1)
+                )
+            }
+        })
 
         val shakeAnimator2 = ObjectAnimator.ofFloat(
             navIconView, "translationX", 0f, 5f, -5f, 5f, -5f, 2.5f, -2.5f, 0f
@@ -317,9 +329,16 @@ class MainActivity : AppCompatActivity() {
         colorAnimatorToBlack.duration = 1000 // 颜色复原时间
 
         // 图标从左向右移动
+        val heavyVibrationPattern = longArrayOf(0, 200) // 长震动效果
         val moveToRight = ObjectAnimator.ofFloat(navIconView, "x", startX, endX)
         moveToRight.duration = 1500
         moveToRight.interpolator = AnticipateOvershootInterpolator()
+        moveToRight.addListener(object : AnimatorListenerAdapter() {
+            override fun onAnimationStart(animation: Animator) {
+                vibrator?.vibrate(VibrationEffect.createWaveform(heavyVibrationPattern, -1))
+            }
+        })
+
         // 图标复原
         val resetPosition = ObjectAnimator.ofFloat(
             navIconView, "x", -navIconView.width.toFloat(), startX
