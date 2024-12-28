@@ -194,15 +194,6 @@ namespace OTPAutoForward.ServiceHandler
             }
         }
 
-        public void ShowNotification(int timeout, string title, string message, ToolTipIcon icon)
-        {
-            _notifyIcon.Visible = true;
-            _notifyIcon.BalloonTipTitle = title;
-            _notifyIcon.BalloonTipText = message;
-            _notifyIcon.BalloonTipIcon = icon;
-            _notifyIcon.ShowBalloonTip(timeout);
-        }
-
         /** 释放托盘图标资源 */
         public void Dispose()
         {

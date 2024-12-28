@@ -18,7 +18,7 @@ namespace OTPAutoForward
     /// </summary>
     public partial class App
     {
-        private static IConfiguration Configuration { get; set; }
+        private static IConfiguration Configuration { get; }
         public static AppSettings AppSettings { get; private set; }
 
         private IContainer _container;
@@ -167,7 +167,7 @@ namespace OTPAutoForward
                         FileName = "netsh",
                         Arguments = $"advfirewall firewall show rule name=\"{AppSettings.AppName}\"",
                         RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false,
-                        CreateNoWindow = true,
+                        CreateNoWindow = true
                     }
                 };
                 checkProcess.Start();
@@ -188,7 +188,7 @@ namespace OTPAutoForward
                         Arguments =
                             $"advfirewall firewall add rule name=\"{AppSettings.AppName}\" dir=in action=allow protocol=TCP localport={port} profile=any",
                         RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false,
-                        CreateNoWindow = true,
+                        CreateNoWindow = true
                     }
                 };
                 addProcess.Start();
@@ -238,7 +238,7 @@ namespace OTPAutoForward
         }
 
         /** 以最小化的方式启动程序 */
-        private void RunInMinimized()
+        private static void RunInMinimized()
         {
             Console.WriteLine("程序正在后台运行..");
         }
