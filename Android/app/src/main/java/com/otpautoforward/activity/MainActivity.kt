@@ -33,8 +33,6 @@ import androidx.appcompat.widget.Toolbar
 import androidx.core.graphics.drawable.DrawableCompat
 import com.otpautoforward.R
 import com.otpautoforward.databinding.ActivityMainBinding
-import com.otpautoforward.handler.GlobalHandler
-import com.otpautoforward.handler.WebSocketWorker
 import android.provider.Settings
 import android.text.method.ScrollingMovementMethod
 import android.widget.ScrollView
@@ -68,7 +66,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var batteryOptiLauncher: ActivityResultLauncher<Intent>
     private val smsPermissionCode = 100
     private lateinit var toolbar: Toolbar
-    private val globalHandler = GlobalHandler()
     private val jsonHandler = JsonHandler(this)
 
     /** 导航栏的动画是否已经播放完毕 */
@@ -144,11 +141,7 @@ class MainActivity : AppCompatActivity() {
             android.R.id.home -> {
                 if (!isAnimating) {
                     animateNavIcon()
-                    if (globalHandler.hasPairedDevice(this)) {
-                        WebSocketWorker.sendWebSocketMessage(
-                            this, "$testMessage\n发送者：$testSender"
-                        )
-                    }
+                    sendTestSMS()
                 }
                 true
             }
@@ -360,6 +353,14 @@ class MainActivity : AppCompatActivity() {
             }
         })
         animatorSet.start()
+    }
+
+    /** 往 Win 端发送测试用的短信 */
+    private fun sendTestSMS() {
+        val intent = Intent("com.OTPAutoForward.TEST_SMS_RECEIVED")
+        intent.putExtra("extra_test_sms", "$testMessage\n发送者：$testSender")
+        intent.setPackage(this@MainActivity.packageName)
+        sendOrderedBroadcast(intent, null)
     }
 
     override fun onDestroy() {

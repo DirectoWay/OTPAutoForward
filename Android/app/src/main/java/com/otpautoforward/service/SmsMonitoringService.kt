@@ -5,6 +5,7 @@ import android.app.NotificationManager
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.SharedPreferences
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.telephony.SmsMessage
@@ -19,41 +20,61 @@ class SmsReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
         appContext = context.applicationContext // 获取应用上下文
-        if (intent.action == "android.provider.Telephony.SMS_RECEIVED") {
-            if (!isWifiConnected()) {
-                Log.d(tag, "当前 WiFi 不可用, 不再转发短信")
+        if (intent.action != "android.provider.Telephony.SMS_RECEIVED" &&
+            intent.action != "com.OTPAutoForward.TEST_SMS_RECEIVED"
+        ) {
+            Log.d(tag, "收到无效操作的广播：${intent.action}")
+            return
+        }
+
+        if (!isWifiConnected()) {
+            Log.d(tag, "当前 WiFi 不可用, 不再转发短信")
+            return
+        }
+
+        // 读取 settings 配置
+        val sharedPreferences =
+            appContext.getSharedPreferences(
+                SettingKey.AppPreferences.key,
+                Context.MODE_PRIVATE
+            )
+
+        // 关闭 "短信转发" 后, 不再处理任何后续逻辑
+        if (!sharedPreferences.getBoolean(SettingKey.SmsEnabled.key, true)) {
+            return
+        }
+
+        // 开启 "跟随系统免打扰" 且系统处于免打扰模式的时候, 不再转发短信
+        if (sharedPreferences.getBoolean(SettingKey.SyncDoNotDistribute.key, true)) {
+            if (isDoNotDisturb()) {
+                Log.d(tag, "系统正处于免打扰模式, 不再转发短信")
                 return
             }
-            // 读取 settings 配置
-            val sharedPreferences =
-                appContext.getSharedPreferences(
-                    SettingKey.AppPreferences.key,
-                    Context.MODE_PRIVATE
-                )
+        }
 
-            // 关闭 "短信转发" 后, 不再处理任何后续逻辑
-            if (!sharedPreferences.getBoolean(SettingKey.SmsEnabled.key, true)) {
+        if (isScreenOn()) {
+            if (sharedPreferences.getBoolean(SettingKey.ScreenLocked.key, true)) {
+                Log.d(tag, "仅锁屏转发已开启, 当前处于亮屏状态, 不再转发短信")
                 return
             }
+        }
 
-            // 开启 "跟随系统免打扰" 且系统处于免打扰模式的时候, 不再转发短信
-            if (sharedPreferences.getBoolean(SettingKey.SyncDoNotDistribute.key, true)) {
-                if (isDoNotDisturb()) {
-                    Log.d(tag, "系统正处于免打扰模式, 不再转发短信")
-                    return
-                }
+        when (intent.action) {
+            "android.provider.Telephony.SMS_RECEIVED" -> {
+                handleSms(intent, sharedPreferences)
             }
 
-            if (isScreenOn()) {
-                if (sharedPreferences.getBoolean(SettingKey.ScreenLocked.key, true)) {
-                    Log.d(tag, "仅锁屏转发已开启, 当前处于亮屏状态, 不再转发短信")
-                    return
-                }
+            // 单独处理测试用的短信内容
+            "com.OTPAutoForward.TEST_SMS_RECEIVED" -> {
+                handleTestSms(intent)
             }
+        }
+    }
 
-            // 处理短信内容
-            val bundle = intent.extras
-            if (bundle != null) {
+    private fun handleSms(intent: Intent, sharedPreferences: SharedPreferences) {
+        val bundle = intent.extras
+        if (bundle != null) {
+            try {
                 val pdus = bundle.get("pdus") as Array<*>
                 val format = bundle.getString("format")
                 for (pdu in pdus) {
@@ -71,11 +92,21 @@ class SmsReceiver : BroadcastReceiver() {
                     WebSocketWorker.sendWebSocketMessage(appContext, "$messageBody\n发送者：$sender")
                     Log.d(tag, "已转发短信：$messageBody 发送者：$sender")
                 }
+            } catch (e: Exception) {
+                Log.e(tag, "解析短信pdus数据时发生异常:", e)
+                WebSocketWorker.sendWebSocketMessage(
+                    appContext,
+                    "【短信异常】解析短信时发生错误, 请您在手机上查看原短信内容\n" + "发送者：自动异常处理"
+                )
             }
         } else {
-            Log.d(tag, "收到无效操作的广播：${intent.action}")
-            return
+            Log.d(tag, "未收到有效的短信数据")
         }
+    }
+
+    private fun handleTestSms(intent: Intent) {
+        val extraValue = intent.getStringExtra("extra_test_sms")
+        WebSocketWorker.sendWebSocketMessage(appContext, "$extraValue")
     }
 
     /** 判断当前是否处于 WiFi 状态 */
