@@ -7,6 +7,9 @@ namespace OTPAutoForward
         /** 程序名称 */
         public string AppName { get; set; } = "OTPAutoForward";
 
+        /** 当前版本号 */
+        public string CurrentVersion { get; set; }
+
         /** WebSocket 运行时的端口号 默认为 9224 端口 */
         public int WebSocketPort { get; set; } = 9224;
 
@@ -22,6 +25,15 @@ namespace OTPAutoForward
             get => string.IsNullOrWhiteSpace(_feedbackUrl) ? "https://gitee.com/dashboard" : _feedbackUrl;
             set => _feedbackUrl = value;
         }
+
+        /** 远程仓库的项目作者 */
+        public string RepositoryOwner { get; set; }
+
+        /* 远程仓库中的项目名称 */
+        public string Repository { get; set; }
+
+        /** 项目的发布仓库源 (仅支持 GitHub 和 Gitee ) */
+        public string ReleasesSource { get; set; }
 
         /** 短信识别关键字 只有包含该关键字的短信才会被识别为验证码类型的短信 */
         public List<string> MessageKeyword { get; set; }

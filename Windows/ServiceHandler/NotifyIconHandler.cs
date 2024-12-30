@@ -7,6 +7,8 @@ using System.Windows.Forms;
 using Microsoft.Win32;
 using FontAwesome.Sharp;
 using log4net;
+using Microsoft.Toolkit.Uwp.Notifications;
+using Application = System.Windows.Application;
 
 namespace OTPAutoForward.ServiceHandler
 {
@@ -69,6 +71,10 @@ namespace OTPAutoForward.ServiceHandler
             contextMenu.Items.Add(new ToolStripMenuItem("重置密钥",
                 IconChar.Key.ToBitmap(IconFont.Solid, 16, Color.Black),
                 (sender, args) => KeyHandler.DeleteRSAKeys()));
+
+            contextMenu.Items.Add(new ToolStripMenuItem("检查更新",
+                IconChar.Refresh.ToBitmap(IconFont.Solid, 16, Color.Black),
+                (sender, args) => CheckUpdatesAsync()));
 
             contextMenu.Items.Add(new ToolStripMenuItem("问题反馈",
                 IconChar.Question.ToBitmap(IconFont.Solid, 16, Color.Black),
@@ -191,6 +197,25 @@ namespace OTPAutoForward.ServiceHandler
             {
                 Console.WriteLine($"操作注册表时发生异常: {ex.Message}");
                 Log.Error($"操作注册表时发生异常: {ex.Message}");
+            }
+        }
+
+        private static async void CheckUpdatesAsync()
+        {
+            try
+            {
+                await UpdateHandler.CheckUpdatesAsync();
+            }
+            catch (Exception ex)
+            {
+                Application.Current.Dispatcher.Invoke(() =>
+                {
+                    var toastBuilder = new ToastContentBuilder()
+                        .AddText("检查更新失败，请稍后再试");
+                    toastBuilder.Show();
+                });
+                Log.Error($"检查更新时发生异常: {ex.Message}");
+                Console.WriteLine($"更新检查失败: {ex.Message}");
             }
         }
 
