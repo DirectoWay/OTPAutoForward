@@ -1,9 +1,12 @@
 ﻿using System;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-using Windows.Web.Http;
+using Windows.UI.Notifications;
+using System.Net.Http;
+using System.Text.RegularExpressions;
 using Flurl.Http;
 using log4net;
 using Microsoft.Toolkit.Uwp.Notifications;
@@ -39,6 +42,7 @@ namespace OTPAutoForward.ServiceHandler
         {
             var args = ToastArguments.Parse(toastArgs.Argument);
             if (args["action"] != "update") return;
+
 
             // 点击 "确定更新" 时开始下载安装包
             var filePath = await DownloadFileAsync();
@@ -87,7 +91,7 @@ namespace OTPAutoForward.ServiceHandler
             catch (Exception ex)
             {
                 Log.Error($"检查更新时发生异常: {ex.Message}");
-                ShowToastNotification("检查更新失败，请稍后再试");
+                ShowToastNotification("检查更新失败, 请稍后再试");
             }
         }
 
@@ -191,7 +195,7 @@ namespace OTPAutoForward.ServiceHandler
             {
                 Log.Error($"从 Gitee 获取更新包失败: {e.Message}");
                 Console.WriteLine($"从 Gitee 获取更新包失败: {e.Message}");
-                throw;
+                return (null, null);
             }
         }
 
@@ -239,34 +243,178 @@ namespace OTPAutoForward.ServiceHandler
         }
 
         /// <summary>
-        /// 根据安装包的下载地址 (url) 进行文件下载
+        /// 根据安装包的下载地址 (url) 进行文件下载, 并通过 Toast 通知实时显示进度
         /// </summary>
         /// <returns>安装包在磁盘中的文件路径</returns>
         private static async Task<string> DownloadFileAsync()
         {
             var downloadDirectory = AppDomain.CurrentDomain.BaseDirectory + "update/";
-            var filePath = downloadDirectory + "update.exe";
-
+            const string tag = "file-download";
+            const string group = "downloads";
             try
             {
                 // 创建目录
-                if (!Directory.Exists(_downloadUrl))
+                if (!Directory.Exists(downloadDirectory))
                 {
                     Directory.CreateDirectory(downloadDirectory);
                 }
 
+                ShowProgressNotification(tag, group, 0, "准备下载更新包...");
+
                 Log.Info("开始下载安装包..." + _downloadUrl);
                 Console.WriteLine("开始下载安装包..." + _downloadUrl);
-                await _downloadUrl.DownloadFileAsync(downloadDirectory, "update.exe");
+
+                string filePath;
+                using (var response = await _downloadUrl.SendAsync(HttpMethod.Get, null,
+                           HttpCompletionOption.ResponseHeadersRead))
+                {
+                    response.ResponseMessage.EnsureSuccessStatusCode();
+
+                    var contentLength = response.ResponseMessage.Content.Headers.ContentLength ?? 0;
+                    if (contentLength == 0)
+                    {
+                        throw new Exception("无法获取文件大小, 取消下载");
+                    }
+
+                    var fileName = GetFileName(response.ResponseMessage.Content);
+                    filePath = Path.Combine(downloadDirectory, fileName);
+
+                    using (var inputStream = await response.GetStreamAsync())
+                    using (var outputStream =
+                           new FileStream(filePath, System.IO.FileMode.Create, FileAccess.Write, FileShare.None))
+                    {
+                        var buffer = new byte[8192];
+                        long totalRead = 0;
+                        int bytesRead;
+
+                        // 按块读取数据
+                        while ((bytesRead = await inputStream.ReadAsync(buffer, 0, buffer.Length)) > 0)
+                        {
+                            outputStream.Write(buffer, 0, bytesRead);
+                            totalRead += bytesRead;
+
+                            // 计算进度
+                            var progress = (double)totalRead / contentLength;
+
+                            // 更新 Toast 通知
+                            UpdateToastNotification(tag, group, progress, $"下载中: {progress:P0}");
+                        }
+                    }
+                }
+
+                await Task.Delay(500); // 延迟 500ms 确保动画显示完整
+                UpdateToastNotification(tag, group, 1.0, "下载完成");
                 return filePath;
+            }
+            catch (FlurlHttpTimeoutException)
+            {
+                Console.WriteLine("请求超时, 请检查网络连接。");
+                ShowToastNotification("下载超时, 请稍后重试");
+                return null;
             }
             catch (Exception ex)
             {
                 Log.Error($"下载安装包时发生异常: {ex.Message}");
-                Console.WriteLine($"下载安装包时发生异常: {ex.Message}");
+                Console.WriteLine($"下载安装包时发生异常: {ex.Message}" + ex.StackTrace);
                 ShowToastNotification("下载更新包失败, 请稍后再重试");
                 return null;
             }
+        }
+
+        /// <summary>
+        /// 下载安装包时获取安装包的实际文件名
+        /// </summary>
+        /// <param name="content">HttpContent 参数</param>
+        /// <returns>安装包的文件名, 获取失败时默认返回 "update.exe"</returns>
+        private static string GetFileName(HttpContent content)
+        {
+            string fileName;
+            if (content?.Headers?.ContentDisposition != null)
+            {
+                var contentDisposition = content.Headers.ContentDisposition.ToString();
+
+                const string fileNamePattern =
+                    @"filename\*=UTF-8''(?<fileName>[^;]+)|filename=""(?<fileName>[^""]+)""|filename=(?<fileName>[^;]+)";
+                var match = Regex.Match(contentDisposition, fileNamePattern);
+
+                if (match.Success)
+                {
+                    // 提取并处理文件名
+                    fileName = match.Groups["fileName"].Value;
+                    if (contentDisposition.Contains("filename*="))
+                    {
+                        fileName = Uri.UnescapeDataString(fileName);
+                    }
+                }
+                else
+                {
+                    fileName = "update.exe"; // 无法匹配时, 使用默认文件名
+                }
+            }
+            else
+            {
+                fileName = "update.exe";
+            }
+
+            return fileName;
+        }
+
+        /** 下载更新包时显示包含初始进度条的 Toast 弹窗 */
+        private static void ShowProgressNotification(string tag, string group, double progress, string status)
+        {
+            Application.Current.Dispatcher.Invoke(() =>
+            {
+                var content = new ToastContentBuilder()
+                    .AddText("下载更新包")
+                    .AddVisualChild(new AdaptiveProgressBar
+                    {
+                        Title = "更新下载",
+                        Value = new BindableProgressBarValue("progressValue"),
+                        ValueStringOverride = new BindableString("progressValueString"),
+                        Status = new BindableString("progressStatus")
+                    });
+
+                // 设置进度条初始值
+                var toast = new ToastNotification(content.GetToastContent().GetXml())
+                {
+                    Tag = tag,
+                    Group = group,
+                    Data = new NotificationData
+                    {
+                        Values =
+                        {
+                            ["progressValue"] = progress.ToString(CultureInfo.CurrentCulture),
+                            ["progressValueString"] = $"{progress:P0}",
+                            ["progressStatus"] = status
+                        },
+                        SequenceNumber = 1
+                    }
+                };
+
+                ToastNotificationManagerCompat.CreateToastNotifier().Show(toast);
+            });
+        }
+
+        /** 根据更新包的下载进度实时更新 Toast 弹窗里的进度条 */
+        private static void UpdateToastNotification(string tag, string group, double progress, string status)
+        {
+            // 更新 Toast 的数据
+            var data = new NotificationData
+            {
+                SequenceNumber = 1,
+                Values =
+                {
+                    ["progressValue"] = progress.ToString(CultureInfo.CurrentCulture),
+                    ["progressValueString"] = $"{progress:P0}",
+                    ["progressStatus"] = status
+                }
+            };
+
+            // 更新通知
+            Application.Current.Dispatcher.Invoke(() =>
+            {
+                ToastNotificationManagerCompat.CreateToastNotifier().Update(data, tag, group);
+            });
         }
 
         /** 请求更新弹窗 */
