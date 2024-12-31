@@ -41,8 +41,11 @@ namespace OTPAutoForward.ServiceHandler
         private static async Task HandleToastActivationAsync(ToastNotificationActivatedEventArgsCompat toastArgs)
         {
             var args = ToastArguments.Parse(toastArgs.Argument);
-            if (args["action"] != "update") return;
 
+            // 点击事件只针对特定标识的 Toast 弹窗生效
+            if (!args.Contains("source") || args["source"] != "UpdateHandler")
+                return;
+            if (args["action"] != "update") return;
 
             // 点击 "确定更新" 时开始下载安装包
             var filePath = await DownloadFileAsync();
@@ -429,10 +432,12 @@ namespace OTPAutoForward.ServiceHandler
                     .AddButton(new ToastButton()
                         .SetContent("确定更新")
                         .AddArgument("action", "update")
+                        .AddArgument("source", "UpdateHandler")
                     )
                     .AddButton(new ToastButton()
                         .SetContent("暂不更新")
                         .AddArgument("action", "cancelUpdate")
+                        .AddArgument("source", "UpdateHandler")
                     );
 
                 toastBuilder.Show();

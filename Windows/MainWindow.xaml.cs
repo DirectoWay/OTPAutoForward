@@ -60,15 +60,17 @@ namespace OTPAutoForward
                         // 限制按钮文本的长度
                         var buttonText = value.Length > 20 ? value.Substring(0, 17) + "..." : value;
                         toastBuilder.AddButton(new ToastButton()
-                            .SetContent(buttonText) // 按钮显示的内容
-                            .AddArgument("action", "copy")
-                            .AddArgument("message", value)); // 点击按钮时传递的内容
+                                .SetContent(buttonText) // 按钮显示的内容
+                                .AddArgument("action", "copy")
+                                .AddArgument("message", value)) // 点击按钮时传递的内容
+                            .AddArgument("source", "WebSocketMessage"); // 给 Toast 弹窗添加来源标识
                     }
                 }
 
                 // 点击 Toast 弹窗本身可以复制整条短信的内容
                 toastBuilder.AddArgument("action", "copy")
-                    .AddArgument("message", message);
+                    .AddArgument("message", message)
+                    .AddArgument("source", "WebSocketMessage"); // 给 Toast 弹窗添加来源标识
 
                 toastBuilder.Show();
             });
@@ -136,6 +138,11 @@ namespace OTPAutoForward
             Application.Current.Dispatcher.Invoke(() =>
             {
                 var arguments = ToastArguments.Parse(toastArgs.Argument);
+
+                // 点击事件只针对特定标识的 Toast 弹窗生效
+                if (!arguments.Contains("source") || arguments["source"] != "WebSocketMessage")
+                    return;
+
                 if (arguments["action"] != "copy") return;
 
                 var textToCopy = arguments["message"];
