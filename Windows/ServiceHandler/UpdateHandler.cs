@@ -24,6 +24,8 @@ namespace OTPAutoForward.ServiceHandler
 
         private static readonly string RepositoryOwner = App.AppSettings.RepositoryOwner;
 
+        private static string _latestVersion;
+
         private static string _downloadUrl;
 
         static UpdateHandler()
@@ -83,6 +85,7 @@ namespace OTPAutoForward.ServiceHandler
 
                 if (latestVersion != App.AppSettings.CurrentVersion)
                 {
+                    _latestVersion = latestVersion;
                     _downloadUrl = downloadUrl;
                     ShowUpdateNotification(latestVersion);
                 }
@@ -262,10 +265,12 @@ namespace OTPAutoForward.ServiceHandler
                     Directory.CreateDirectory(downloadDirectory);
                 }
 
-                ShowProgressNotification(tag, group, 0, "准备下载更新包...");
-
-                Log.Info("开始下载安装包..." + _downloadUrl);
-                Console.WriteLine("开始下载安装包..." + _downloadUrl);
+                // 检查是否有现成的安装包
+                var existingFilePath = CheckFileExist(downloadDirectory);
+                if (existingFilePath != null)
+                {
+                    return existingFilePath;
+                }
 
                 string filePath;
                 using (var response = await _downloadUrl.SendAsync(HttpMethod.Get, null,
@@ -281,6 +286,11 @@ namespace OTPAutoForward.ServiceHandler
 
                     var fileName = GetFileName(response.ResponseMessage.Content);
                     filePath = Path.Combine(downloadDirectory, fileName);
+
+                    ShowProgressNotification(tag, group, 0, "准备下载更新包...");
+
+                    Log.Info("开始下载安装包..." + _downloadUrl);
+                    Console.WriteLine("开始下载安装包..." + _downloadUrl);
 
                     using (var inputStream = await response.GetStreamAsync())
                     using (var outputStream =
@@ -322,6 +332,40 @@ namespace OTPAutoForward.ServiceHandler
                 ShowToastNotification("下载更新包失败, 请稍后再重试");
                 return null;
             }
+        }
+
+        /// <summary>
+        /// 检查目录中是否已经存在有最新版本的安装包
+        /// </summary>
+        /// <param name="downloadDirectory">安装包所在的文件目录</param>
+        /// <returns>不为 null 时说明安装包已存在, 直接返回安装包的地址</returns>
+        private static string CheckFileExist(string downloadDirectory)
+        {
+            // 去除版本号的前缀
+            var latestVersion = _latestVersion.ToLower()
+                .Replace("v", "").Replace("ver", "");
+
+            // 获取安装包目录下的所有 exe 文件
+            var exeFiles = Directory.GetFiles(downloadDirectory, "*.exe");
+
+            // 比对最新版本号与现有的 exe 文件名称
+            var matchingFiles = exeFiles
+                .Where(file => Path.GetFileNameWithoutExtension(file).Contains(latestVersion))
+                .ToList();
+
+            // 只找到一个结果时说明安装包已经存在
+            if (matchingFiles.Count == 1)
+            {
+                return matchingFiles.First(); // 返回现有安装包的路径
+            }
+
+            // 找到有多个符合条件的结果说明有干扰性的 exe 文件存在, 全删了重新下
+            foreach (var file in exeFiles)
+            {
+                File.Delete(file);
+            }
+
+            return null;
         }
 
         /// <summary>
