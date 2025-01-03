@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using Windows.UI.Notifications;
 using System.Net.Http;
 using System.Text.RegularExpressions;
+using System.Threading;
 using Flurl.Http;
 using log4net;
 using Microsoft.Toolkit.Uwp.Notifications;
@@ -23,6 +24,11 @@ namespace OTPAutoForward.ServiceHandler
         private static readonly string Repository = App.AppSettings.Repository;
 
         private static readonly string RepositoryOwner = App.AppSettings.RepositoryOwner;
+
+        private static readonly string ReleasesSource = App.AppSettings.ReleasesSource;
+
+        private static readonly string CurrentVersion =
+            App.AppSettings.CurrentVersion.ToLower().Replace("v", "").Replace("ver", "");
 
         private static string _latestVersion;
 
@@ -66,7 +72,7 @@ namespace OTPAutoForward.ServiceHandler
         /// </summary>
         public static async Task CheckUpdatesAsync()
         {
-            if (string.IsNullOrWhiteSpace(App.AppSettings.ReleasesSource))
+            if (string.IsNullOrWhiteSpace(ReleasesSource))
             {
                 // 未设置发布仓库源的时候无法检查更新
                 ShowToastNotification("暂无更新");
@@ -79,11 +85,11 @@ namespace OTPAutoForward.ServiceHandler
 
                 if (string.IsNullOrEmpty(latestVersion) || string.IsNullOrEmpty(downloadUrl))
                 {
-                    ShowToastNotification($"暂无更新\n当前版本: {App.AppSettings.CurrentVersion}");
+                    ShowToastNotification($"暂无更新\n当前版本: {CurrentVersion}");
                     return;
                 }
 
-                if (latestVersion != App.AppSettings.CurrentVersion)
+                if (latestVersion != CurrentVersion)
                 {
                     _latestVersion = latestVersion;
                     _downloadUrl = downloadUrl;
@@ -91,7 +97,7 @@ namespace OTPAutoForward.ServiceHandler
                 }
                 else
                 {
-                    ShowToastNotification($"当前版本已是最新版\n当前版本: {App.AppSettings.CurrentVersion}");
+                    ShowToastNotification($"当前版本已是最新版\n当前版本: {CurrentVersion}");
                 }
             }
             catch (Exception ex)
@@ -107,7 +113,7 @@ namespace OTPAutoForward.ServiceHandler
         /// <returns>最新版本号, 安装包下载地址</returns>
         private static Task<(string, string)> GetLatestReleaseAsync()
         {
-            var releaseSource = App.AppSettings.ReleasesSource.ToLower();
+            var releaseSource = ReleasesSource.ToLower();
 
             if (releaseSource.Contains("gitee"))
             {
@@ -118,8 +124,6 @@ namespace OTPAutoForward.ServiceHandler
             {
                 return GetGitHubReleaseAsync();
             }
-
-            ShowToastNotification("暂无更新");
 
             return null;
         }
@@ -136,7 +140,8 @@ namespace OTPAutoForward.ServiceHandler
 
                 var latestRelease = await client.Repository.Release.GetLatest(RepositoryOwner, Repository);
 
-                var latestVersion = latestRelease.TagName;
+                var latestVersion = latestRelease.TagName.ToLower()
+                    .Replace("v", "").Replace("ver", "");
                 var assets = latestRelease.Assets;
 
                 // 从 assets 属性中获取 exe 安装包的下载地址
@@ -184,7 +189,8 @@ namespace OTPAutoForward.ServiceHandler
 
                     var releaseObject = JObject.Parse(responseBody);
 
-                    var latestVersion = releaseObject["tag_name"]?.ToString();
+                    var latestVersion = releaseObject["tag_name"]?.ToString().ToLower()
+                        .Replace("v", "").Replace("ver", "");
                     var assets = releaseObject["assets"] as JArray;
 
                     // 从 assets 属性中获取 exe 安装包的下载地址
@@ -460,7 +466,14 @@ namespace OTPAutoForward.ServiceHandler
             // 更新通知
             Application.Current.Dispatcher.Invoke(() =>
             {
-                ToastNotificationManagerCompat.CreateToastNotifier().Update(data, tag, group);
+                var notifier = ToastNotificationManagerCompat.CreateToastNotifier();
+                notifier.Update(data, tag, group);
+
+                // 进度条达到 100% 的时候自动移除 Toast 弹窗
+                if (!(Math.Abs(progress - 1.0) < 0.0001)) return;
+                notifier.Update(data, tag, group);
+                Thread.Sleep(2000);
+                ToastNotificationManagerCompat.History.Clear();
             });
         }
 
@@ -472,7 +485,7 @@ namespace OTPAutoForward.ServiceHandler
                 var toastBuilder = new ToastContentBuilder()
                     .AddText("已经检测到新版本, 确定要更新吗?")
                     .AddText($"更新版本: {latestVersion}")
-                    .AddText($"当前版本: {App.AppSettings.CurrentVersion}")
+                    .AddText($"当前版本: {CurrentVersion}")
                     .AddButton(new ToastButton()
                         .SetContent("确定更新")
                         .AddArgument("action", "update")
