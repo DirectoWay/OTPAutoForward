@@ -7,35 +7,46 @@ import com.otpautoforward.dataclass.PairedDeviceInfo
 import com.otpautoforward.dataclass.SettingKey
 import org.json.JSONObject
 
+private const val tag = "QRCodeHandler"
+
 /** 处理 Win 端提供的二维码 */
 class QRCodeHandler {
     private val keyHandler = KeyHandler()
 
     /** 解密和验证二维码信息 */
     fun analyzeQRCode(qrData: String?): PairedDeviceInfo? {
-        if (qrData.isNullOrBlank()) return null
+        try {
+            if (qrData.isNullOrBlank()) throw Exception("二维码信息为空")
 
-        // 分割加密内容和签名
-        val parts = qrData.split(".")
-        if (parts.size != 2) return null
+            // 分割加密内容和签名
+            val parts = qrData.split(".")
+            if (parts.size != 2) return null
 
-        val encryptedText = parts[0]
-        val signature = parts[1]
+            val encryptedText = parts[0]
+            val signature = parts[1]
 
-        // 解密二维码中的配对信息
-        val decryptedText = keyHandler.decryptString(encryptedText) ?: return null
-        val pairedDeviceInfo = Gson().fromJson(decryptedText, PairedDeviceInfo::class.java)
+            // 解密二维码中的配对信息
+            val decryptedText = keyHandler.decryptString(encryptedText) ?: return null
+            val pairedDeviceInfo = Gson().fromJson(decryptedText, PairedDeviceInfo::class.java)
 
-        // 验证二维码中的签名
-        val isValidSignature =
-            keyHandler.verifySignature(decryptedText, signature, pairedDeviceInfo.windowsPublicKey)
-        if (!isValidSignature) {
-            Log.e("QRCodeHandler", "签名验证失败")
+            // 验证二维码中的签名
+            val isValidSignature =
+                keyHandler.verifySignature(
+                    decryptedText,
+                    signature,
+                    pairedDeviceInfo.windowsPublicKey
+                )
+            if (!isValidSignature) {
+                Log.e("QRCodeHandler", "签名验证失败")
+                throw Exception("签名验证失败")
+            }
+
+            // 返回解密后的内容
+            return pairedDeviceInfo
+        } catch (ex: Exception) {
+            Log.d(tag, "解析二维码时发生异常: " + ex.message)
             return null
         }
-
-        // 返回解密后的内容
-        return pairedDeviceInfo
     }
 
     /** 记录已经匹配成功过的设备 */
