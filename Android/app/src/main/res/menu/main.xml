@@ -22,4 +22,11 @@
         android:title="问题反馈"
         app:showAsAction="never"
         tools:ignore="HardcodedText" />
+
+    <item
+        android:id="@+id/action_update"
+        android:orderInCategory="100"
+        android:title="检查更新"
+        app:showAsAction="never"
+        tools:ignore="HardcodedText" />
 </menu>

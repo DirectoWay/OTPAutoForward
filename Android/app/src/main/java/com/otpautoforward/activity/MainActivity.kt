@@ -43,6 +43,7 @@ import androidx.lifecycle.lifecycleScope
 import com.otpautoforward.handler.JsonHandler
 import kotlinx.coroutines.launch
 import androidx.core.content.ContextCompat.getSystemService
+import com.otpautoforward.handler.UpdateHandler
 
 private const val testMessage =
     "【测试短信】尾号为1234的用户您好, 987123 是您的验证码, 这是一条测试短信"
@@ -67,6 +68,7 @@ class MainActivity : AppCompatActivity() {
     private val smsPermissionCode = 100
     private lateinit var toolbar: Toolbar
     private val jsonHandler = JsonHandler(this)
+    private val updateHandler = UpdateHandler()
 
     /** 导航栏的动画是否已经播放完毕 */
     private var isAnimating = false
@@ -143,6 +145,11 @@ class MainActivity : AppCompatActivity() {
                     animateNavIcon()
                     sendTestSMS()
                 }
+                true
+            }
+
+            R.id.action_update -> {
+                lifecycleScope.launch { updateHandler.checkUpdatesAsync(this@MainActivity) }
                 true
             }
 
