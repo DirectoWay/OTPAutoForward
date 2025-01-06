@@ -2,6 +2,7 @@ package com.otpautoforward.handler
 
 import android.content.Context
 import android.graphics.Color
+import android.text.Html
 import android.text.SpannableString
 import android.text.Spanned
 import android.text.style.ForegroundColorSpan
@@ -48,45 +49,25 @@ class JsonHandler(private val context: Context) {
         }
     }
 
-    fun formatQAJson(jsonString: String): SpannableString {
+    fun formatQAJson(jsonString: String): CharSequence {
         return try {
             val jsonObject = JSONObject(jsonString)
             val qaObject = jsonObject.getJSONObject("qa")
             val stringBuilder = StringBuilder()
 
-            val spans = mutableListOf<Pair<Int, Int>>()
-
+            // "问" 的部分为黑色, "答" 的部分为浅灰色
             qaObject.keys().forEach { key ->
                 val value = qaObject.getString(key)
-                val questionOrAnswer = if (key.startsWith("问")) {
-                    "$key：$value\n"
-                } else {
-                    "$key：$value\n\n"
-                }
-
-                val start = stringBuilder.length
-                stringBuilder.append(questionOrAnswer)
-                val end = stringBuilder.length
-
-                if (key.startsWith("问")) {
-                    spans.add(start to end - 1)
-                }
-            }
-
-            val formattedString = SpannableString(stringBuilder.toString())
-
-            spans.forEach { (start, end) ->
-                formattedString.setSpan(
-                    ForegroundColorSpan(Color.BLACK),
-                    start,
-                    end,
-                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+                val color = if (key.startsWith("问")) "#000000" else "#666666"
+                stringBuilder.append(
+                    "<font color='$color'>$key：$value</font><br>${if (!key.startsWith("问")) "<br>" else ""}"
                 )
             }
 
-            formattedString
+            Html.fromHtml(stringBuilder.toString(), Html.FROM_HTML_MODE_LEGACY)
         } catch (e: Exception) {
             SpannableString("暂无数据")
         }
     }
+
 }
