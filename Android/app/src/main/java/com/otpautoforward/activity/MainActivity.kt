@@ -1,14 +1,5 @@
 package com.otpautoforward.activity
 
-import android.content.Intent
-import android.content.pm.PackageManager
-import android.os.Bundle
-import android.util.Log
-import android.view.Menu
-import com.google.android.material.snackbar.Snackbar
-import androidx.appcompat.app.AppCompatActivity
-import androidx.core.app.ActivityCompat
-import androidx.core.content.ContextCompat
 import android.Manifest
 import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
@@ -17,33 +8,45 @@ import android.animation.ObjectAnimator
 import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Color
 import android.net.Uri
 import android.os.Build
+import android.os.Bundle
 import android.os.PowerManager
 import android.os.VibrationEffect
 import android.os.Vibrator
+import android.provider.Settings
+import android.text.Html
+import android.util.Log
+import android.view.Menu
 import android.view.MenuItem
 import android.view.animation.AnticipateOvershootInterpolator
 import android.view.animation.DecelerateInterpolator
 import android.widget.ImageView
-import androidx.annotation.RequiresApi
-import androidx.appcompat.app.AlertDialog
-import androidx.appcompat.widget.Toolbar
-import androidx.core.graphics.drawable.DrawableCompat
-import com.otpautoforward.R
-import com.otpautoforward.databinding.ActivityMainBinding
-import android.provider.Settings
-import android.text.method.ScrollingMovementMethod
-import android.widget.ScrollView
-import android.widget.TextView
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.lifecycle.lifecycleScope
-import com.otpautoforward.handler.JsonHandler
-import kotlinx.coroutines.launch
+import androidx.annotation.RequiresApi
+import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.widget.Toolbar
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import androidx.core.content.ContextCompat.getSystemService
+import androidx.core.graphics.drawable.DrawableCompat
+import androidx.lifecycle.lifecycleScope
+import com.google.android.material.snackbar.Snackbar
+import com.kongzue.dialogx.DialogX
+import com.kongzue.dialogx.dialogs.MessageDialog
+import com.kongzue.dialogx.dialogs.WaitDialog
+import com.kongzue.dialogx.util.TextInfo
+import com.kongzue.dialogxmaterialyou.style.MaterialYouStyle
+import com.otpautoforward.R
+import com.otpautoforward.databinding.ActivityMainBinding
+import com.otpautoforward.handler.JsonHandler
 import com.otpautoforward.handler.UpdateHandler
+import kotlinx.coroutines.launch
+
 
 private const val testMessage =
     "【测试短信】尾号为1234的用户您好, 987123 是您的验证码, 这是一条测试短信"
@@ -81,6 +84,8 @@ class MainActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         toolbar = binding.appBarMain.toolbar
+
+        configDialogX()
 
         // 设置左上角导航图标的偏移位置
         toolbar.post {
@@ -166,18 +171,28 @@ class MainActivity : AppCompatActivity() {
     @SuppressLint("BatteryLife")
     /** 添加电池白名单 */
     private fun batteryOpti() {
-        val builder = AlertDialog.Builder(this)
-        builder.setTitle("电池优化白名单请求")
-            .setMessage("请允许 App 的省电策略被设置为无限制或不受限制, 以免息屏后无法进行短信转发\n\n如果您已经进行过相关设置, 请无视该弹窗")
-            .setPositiveButton("去设置") { _, _ ->
+        MessageDialog.build()
+            .setTitle("电池优化白名单请求")
+            .setMessage(
+                Html.fromHtml(
+                    "请允许 App 的<b><font color='#0F826E'>省电策略</font></b>被设置为" +
+                            "<b><font color='#0F826E'>无限制</font></b>或" +
+                            "<b><font color='#0F826E'>不受限制</font></b>, " +
+                            "否则息屏后可能无法进行短信转发<br><br>" +
+                            "如果您已经进行过相关设置, 可关闭弹窗",
+                    Html.FROM_HTML_MODE_LEGACY
+                )
+            )
+            .setOkButton("去设置") { _, _ ->
                 val intent = Intent().apply {
                     action = Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS
                     data = Uri.parse("package:$packageName")
                 }
                 batteryOptiLauncher.launch(intent)
-            }.setNegativeButton("取消") { dialog, _ -> dialog.dismiss() }
-        val dialog = builder.create()
-        dialog.show()
+                false
+            }
+            .setCancelButton("取消")
+            .show()
     }
 
     private fun checkAndRequestSmsPermission() {
@@ -187,13 +202,23 @@ class MainActivity : AppCompatActivity() {
         ) == PackageManager.PERMISSION_GRANTED
         if (!receiveSmsGranted) {
             if (ActivityCompat.shouldShowRequestPermissionRationale(this, smsPermission)) {
-                AlertDialog.Builder(this).setTitle("短信权限请求")
+                MessageDialog.build()
+                    .setTitle("短信权限请求")
                     .setMessage("为了 App 能正常工作, 请您授予接收短信的权限")
-                    .setPositiveButton("授予权限") { _, _ ->
+                    .setOkButton(
+                        "授予权限"
+                    ) { _, _ ->
                         ActivityCompat.requestPermissions(
-                            this, arrayOf(Manifest.permission.RECEIVE_SMS), smsPermissionCode
+                            this,
+                            arrayOf(Manifest.permission.RECEIVE_SMS),
+                            smsPermissionCode
                         )
-                    }.setNegativeButton("拒绝") { _, _ -> Log.e(tag, "短信权限已被拒绝") }.create()
+                        false
+                    }
+                    .setCancelButton("拒绝") { _, _ ->
+                        Log.e(tag, "短信权限已被拒绝")
+                        false
+                    }
                     .show()
             } else {
                 ActivityCompat.requestPermissions(this, arrayOf(smsPermission), smsPermissionCode)
@@ -217,61 +242,56 @@ class MainActivity : AppCompatActivity() {
 
     /** 检测到短信权限被拒绝后, 跳转至应用设置页面重新授予短信权限 */
     private fun showPermissionSettingsDialog() {
-        AlertDialog.Builder(this).setMessage("短信权限已被拒绝\nApp 可能无法正常使用")
-            .setPositiveButton("去设置") { _, _ ->
+        MessageDialog.build()
+            .setTitle("短信权限请求")
+            .setMessage("短信权限已被拒绝\nApp 可能无法正常使用")
+            .setOkButton("去设置") { _, _ ->
                 val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
                 val uri = Uri.fromParts("package", packageName, null)
                 intent.data = uri
                 startActivity(intent)
-            }.setNegativeButton("取消") { _, _ ->
+                false
+            }
+            .setCancelButton("取消") { _, _ ->
                 Log.e(tag, "短信权限未获取")
-            }.create().show()
+                false
+            }
+            .show()
     }
 
     /** 跳转至问题反馈页面 */
     private fun openFeedbackUrl() {
-        AlertDialog.Builder(this).setTitle("打开外部浏览器").setMessage("即将跳转至反馈页面?")
-            .setPositiveButton("确定") { _, _ ->
+        MessageDialog.build()
+            .setTitle("打开外部浏览器")
+            .setMessage("即将跳转至反馈页面?")
+            .setOkButton("确定") { _, _ ->
                 val intent = Intent(
                     Intent.ACTION_VIEW, Uri.parse("https://shimo.im/forms/25q5X4Wl48fWJQ3D/fill")
                 )
                 startActivity(intent)
-            }.setNegativeButton("取消") { dialog, _ -> dialog.dismiss() }.show()
-
+                false
+            }
+            .setCancelButton("取消")
+            .show()
     }
 
     /** 跳转至常见问题页面 */
     private fun openQADialog() {
+        WaitDialog.show("加载中")
         lifecycleScope.launch {
             val jsonContent = jsonHandler.fetchQAJson(qaJson)
             jsonContent?.let { // 处理获取到的 JSON 内容
                 val formattedContent = jsonHandler.formatQAJson(it)
-                AlertDialog.Builder(this@MainActivity)
+                WaitDialog.dismiss()
+                MessageDialog.build()
                     .setTitle("常见问题")
-                    .setView(ScrollView(this@MainActivity).apply {
-                        val scrollViewContext = context
-                        val paddingHorizontal = 25.dpToPx(scrollViewContext)
-                        val paddingVertical = 15.dpToPx(scrollViewContext)
-                        addView(TextView(scrollViewContext).apply {
-                            text = formattedContent
-                            movementMethod = ScrollingMovementMethod()
-                            setPadding(
-                                paddingHorizontal,
-                                paddingVertical,
-                                paddingHorizontal,
-                                paddingVertical
-                            )
-                        })
-                    }).setPositiveButton("确定") { dialog, _ -> dialog.dismiss() }.show()
+                    .setMessage(formattedContent)
+                    .setOkButton("确定")
+                    .show()
             } ?: run {
                 Log.e(tag, "处理 QA 数据时发生异常")
             }
         }
-    }
-
-    private fun Int.dpToPx(context: Context): Int {
-        val density = context.resources.displayMetrics.density
-        return (this * density).toInt()
     }
 
     /** 播放导航图标动画 */
@@ -368,6 +388,30 @@ class MainActivity : AppCompatActivity() {
         intent.putExtra("extra_test_sms", "$testMessage\n发送者：$testSender")
         intent.setPackage(this@MainActivity.packageName)
         sendOrderedBroadcast(intent, null)
+    }
+
+    /**
+     * 配置 DialogX,
+     * 仅在当前文件作用域生效
+     */
+    private fun configDialogX() {
+        DialogX.init(this)
+        DialogX.globalStyle = MaterialYouStyle() // 设置为 MaterialYou 主题
+        MessageDialog.overrideExitDuration = 150 // 对话框淡去的动画持续时间
+        DialogX.backgroundColor = Color.parseColor("#FFFFFFFF") // 对话框背景颜色
+
+        // "确认" 按钮的样式
+        val okTextInfo = TextInfo()
+        okTextInfo.fontColor = Color.parseColor("#0F826E")
+        okTextInfo.isBold = true
+        okTextInfo.fontSize = 17
+        DialogX.okButtonTextInfo = okTextInfo
+
+        // 其他按钮样式
+        val cancelTextInfo = TextInfo()
+        cancelTextInfo.fontColor = Color.GRAY
+        cancelTextInfo.isBold = true
+        DialogX.buttonTextInfo = cancelTextInfo
     }
 
     override fun onDestroy() {
