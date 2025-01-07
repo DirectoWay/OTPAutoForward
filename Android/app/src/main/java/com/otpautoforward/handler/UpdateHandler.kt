@@ -1,18 +1,14 @@
 package com.otpautoforward.handler
 
 import android.content.Context
-import android.content.DialogInterface
 import android.content.Intent
-import android.graphics.Color
 import android.net.Uri
-import android.os.Handler
-import android.os.Looper
 import android.util.Log
-import android.widget.LinearLayout
-import android.widget.ProgressBar
 import android.widget.Toast
-import androidx.appcompat.app.AlertDialog
 import androidx.core.content.FileProvider
+import com.kongzue.dialogx.dialogs.MessageDialog
+import com.kongzue.dialogx.dialogs.TipDialog
+import com.kongzue.dialogx.dialogs.WaitDialog
 import com.otpautoforward.dataclass.AppConfig
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -49,9 +45,6 @@ class UpdateHandler {
 
     private val client = OkHttpClient()
 
-    /** 下载安装包时的进度条 */
-    private lateinit var progressBar: ProgressBar
-
     suspend fun checkUpdatesAsync(context: Context) {
         if (AppConfig.ReleasesSource.value.isBlank()) {
             Log.e(tag, "未配置更新仓库源, 更新失败")
@@ -60,7 +53,9 @@ class UpdateHandler {
         }
 
         try {
+            WaitDialog.show("检查更新中")
             val latestRelease = getLatestReleaseAsync()
+            WaitDialog.dismiss()
 
             if (latestRelease == null) {
                 Log.e(tag, "获取最新版本信息失败")
@@ -79,15 +74,15 @@ class UpdateHandler {
             currentVersion =
                 context.packageManager.getPackageInfo(context.packageName, 0).versionName
 
-            if (latestVersion != currentVersion) {
-                _latestVersion = latestVersion
-                _downloadUrl = downloadUrl
-                showUpdateDialog(context)
-            } else {
+            if (latestVersion == currentVersion) {
                 showToastNotification(
                     context, "当前版本已是最新版\n当前版本: $currentVersion"
                 )
             }
+
+            _latestVersion = latestVersion
+            _downloadUrl = downloadUrl
+            showUpdateDialog(context)
 
         } catch (ex: Exception) {
             Log.e(tag, "检查更新时发生异常: $ex")
@@ -142,18 +137,18 @@ class UpdateHandler {
                 connection.requestMethod = "GET"
                 val responseCode = connection.responseCode
 
-                if (responseCode == HttpURLConnection.HTTP_OK) {
-                    val responseBody = connection.inputStream.bufferedReader().use { it.readText() }
-                    val releases = JSONArray(responseBody)
-
-                    if (releases.length() <= 0) return@withContext null
-
-                    val firstRelease = releases.getJSONObject(0)
-                    val releaseId = firstRelease.optInt("id")
-                    if (releaseId == 0) null else releaseId
-                } else {
-                    null
+                if (responseCode != HttpURLConnection.HTTP_OK) {
+                    return@withContext null
                 }
+
+                val responseBody = connection.inputStream.bufferedReader().use { it.readText() }
+                val releases = JSONArray(responseBody)
+
+                if (releases.length() <= 0) return@withContext null
+
+                val firstRelease = releases.getJSONObject(0)
+                val releaseId = firstRelease.optInt("id")
+                if (releaseId == 0) null else releaseId
             }
         } catch (ex: IOException) {
             Log.e(tag, "从 Gitee 获取发行版ID失败: $ex")
@@ -183,29 +178,31 @@ class UpdateHandler {
                 connection.requestMethod = "GET"
                 connection.connect()
 
-                if (connection.responseCode == HttpURLConnection.HTTP_OK) {
-                    val responseBody = connection.inputStream.bufferedReader().use { it.readText() }
-                    val releaseObject = JSONObject(responseBody)
-
-                    val latestVersion =
-                        releaseObject.optString("tag_name").lowercase().replace("v", "")
-                            .replace("ver", "")
-                    val assets = releaseObject.optJSONArray("assets")
-
-                    val downloadUrl = assets?.let {
-                        for (i in 0 until it.length()) {
-                            val asset = it.getJSONObject(i)
-                            val url = asset.optString("browser_download_url")
-                            if (url.contains("apk")) {
-                                return@let url
-                            }
-                        }
-                        null
-                    }
-                    Pair(latestVersion, downloadUrl)
-                } else {
+                if (connection.responseCode != HttpURLConnection.HTTP_OK) {
                     Pair(null, null)
                 }
+
+                val responseBody = connection.inputStream.bufferedReader().use { it.readText() }
+                val releaseObject = JSONObject(responseBody)
+
+                val latestVersion = releaseObject
+                    .optString("tag_name")
+                    .lowercase()
+                    .replace("v", "")
+                    .replace("ver", "")
+                val assets = releaseObject.optJSONArray("assets")
+
+                val downloadUrl = assets?.let {
+                    for (i in 0 until it.length()) {
+                        val asset = it.getJSONObject(i)
+                        val url = asset.optString("browser_download_url")
+                        if (url.contains("apk")) {
+                            return@let url
+                        }
+                    }
+                    null
+                }
+                Pair(latestVersion, downloadUrl)
             }
         } catch (ex: Exception) {
             Log.e(tag, "从 $baseUrl 获取更新包失败: $ex")
@@ -217,24 +214,23 @@ class UpdateHandler {
      * 根据提供的 url 下载 apk 文件
      *
      * @param context
-     * @param updateProgress 用于更新进度条的回调函数
      * @return 下载好的 apk 文件的绝对路径
      */
     private suspend fun downloadFileAsync(
-        context: Context, updateProgress: (progress: Int) -> Unit
+        context: Context
     ): String? {
+        WaitDialog.show("加载中")
         return try {
             val result = withContext(Dispatchers.IO) {
-
-                val externalFilesDir = context.getExternalFilesDir(null)
+                val externalCacheDir = context.externalCacheDir
                     ?: throw Exception("获取安装包存储目录时发生异常")
 
-                if (!externalFilesDir.exists()) {
-                    externalFilesDir.mkdirs()
+                if (!externalCacheDir.exists()) {
+                    externalCacheDir.mkdirs()
                 }
 
                 // 清空可能残留的 apk 文件
-                deleteApk(externalFilesDir)
+                deleteApk(externalCacheDir)
 
                 val request = Request.Builder().url(_downloadUrl).build()
                 val response = client.newCall(request).execute()
@@ -243,13 +239,15 @@ class UpdateHandler {
                     throw Exception("下载文件时发生异常${response.message}")
                 }
 
+                WaitDialog.dismiss()
+
                 response.body?.let { body ->
                     val contentLength = body.contentLength()
                     if (contentLength == -1L) {
                         throw Exception("无法获取文件大小, 取消下载")
                     }
 
-                    val outputFile = File(externalFilesDir, "update.apk")
+                    val outputFile = File(externalCacheDir, "update.apk")
                     val inputStream: InputStream = body.byteStream()
                     val outputStream = FileOutputStream(outputFile)
 
@@ -257,26 +255,28 @@ class UpdateHandler {
                     var bytesRead: Int
                     var totalBytesRead: Long = 0
 
+                    val dialog = WaitDialog.show("正在下载... 0%").setProgress(0f)
                     while (inputStream.read(buffer).also { bytesRead = it } != -1) {
                         outputStream.write(buffer, 0, bytesRead)
                         totalBytesRead += bytesRead
-                        val progress = (totalBytesRead * 100 / contentLength).toInt()
-                        withContext(Dispatchers.Main) {
-                            updateProgress(progress)
-                        }
+
+                        val progress = (totalBytesRead.toFloat() / contentLength)
+                        val progressPercentage = (progress * 100).toInt()
+                        dialog.setProgress(progress)
+                        dialog.setMessageContent("正在下载... $progressPercentage%")
                     }
 
                     outputStream.close()
                     inputStream.close()
-
-                    Handler(Looper.getMainLooper()).postDelayed({ updateProgress(100) }, 2000)
+                    dialog.doDismiss()
+                    TipDialog.show("下载完成", WaitDialog.TYPE.SUCCESS)
                     outputFile.absolutePath
                 }
             }
             result
         } catch (ex: Exception) {
-            Log.e(tag, "下载更新包时发生异常: " + ex.message + "\n")
-            ex.printStackTrace()
+            WaitDialog.dismiss()
+            Log.e(tag, "下载更新包时发生异常: $ex")
             null
         }
     }
@@ -323,59 +323,23 @@ class UpdateHandler {
 
     /** 请求更新弹窗 */
     private fun showUpdateDialog(context: Context) {
-
-        AlertDialog.Builder(context).setTitle("版本更新")
+        MessageDialog.build()
+            .setTitle("版本更新")
             .setMessage("已经检测到新版本, 确定要更新吗?\n更新版本: $_latestVersion\n当前版本: $currentVersion")
-            .setPositiveButton("确定更新") { dialog, _ ->
-                val progressDialog = showDownloadProgressDialog(context)
-
+            .setOkButton("确定更新") { _, _ ->
                 CoroutineScope(Dispatchers.Main).launch {
-                    val filePath = downloadFileAsync(context) { progress ->
-                        progressBar.progress = progress
-                    }
-
-                    progressDialog.dismiss()
-
-                    if (filePath != null) {
-                        showToastNotification(context, "安装包下载完毕, 即将进行版本更新")
-                        installApk(context, filePath)
-                    } else {
+                    val filePath = downloadFileAsync(context)
+                    if (filePath == null) {
                         showToastNotification(context, "安装包下载失败, 请您稍后再试")
+                        return@launch
                     }
-
+                    showToastNotification(context, "安装包下载完毕, 即将进行版本更新")
+                    installApk(context, filePath)
                 }
-                dialog.dismiss()
-            }.setNegativeButton("暂不更新") { dialog, _ -> dialog.dismiss() }.show()
-            .getButton(DialogInterface.BUTTON_NEGATIVE)?.setTextColor(Color.GRAY)
-    }
-
-    /**
-     * 显示带有进度条的下载弹窗
-     *
-     * @param context
-     */
-    private fun showDownloadProgressDialog(context: Context): AlertDialog {
-        progressBar = ProgressBar(context, null, android.R.attr.progressBarStyleHorizontal)
-        progressBar.max = 100
-        progressBar.progress = 0
-
-        val linearLayout = LinearLayout(context).apply {
-            orientation =
-                LinearLayout.VERTICAL
-            setPadding(64, 96, 64, 0) // 设置进度条的边距
-            addView(progressBar)
-        }
-
-        val dialog = AlertDialog.Builder(context)
-            .setTitle("正在下载安装包")
-            .setMessage("您可以关闭该弹窗, 安装包将会自动在后台下载")
-            .setView(linearLayout)
-            .setPositiveButton("确定") { dialog, _ -> dialog.dismiss() }
-            .setCancelable(false)
-            .create()
-
-        dialog.show()
-        return dialog
+                false
+            }
+            .setCancelButton("暂不更新")
+            .show()
     }
 
     private fun showToastNotification(context: Context, message: String) {
