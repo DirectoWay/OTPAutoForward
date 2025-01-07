@@ -106,15 +106,15 @@ class WebSocketWorker(context: Context, workerParams: WorkerParameters) :
         } catch (e: Exception) {
             if (currentRetryCount >= WORK_MAX_RETRY_COUNT) {
                 Result.failure() // 超过最大重试次数直接失败
-            } else {
-                val outputData = Data.Builder()
-                    .putInt(KEY_RETRY_COUNT, currentRetryCount + 1)
-                    .build()
-
-                setProgressAsync(outputData) // 更新重试进度
-                Log.e(tag, "WebSocket 连接失败", e)
-                Result.retry()
             }
+
+            val outputData = Data.Builder()
+                .putInt(KEY_RETRY_COUNT, currentRetryCount + 1)
+                .build()
+
+            setProgressAsync(outputData) // 更新重试进度
+            Log.e(tag, "WebSocket 连接失败", e)
+            Result.retry()
         }
     }
 
@@ -161,53 +161,51 @@ class WebSocketWorker(context: Context, workerParams: WorkerParameters) :
                                 }
 
                                 override fun onMessage(webSocket: WebSocket, text: String) {
-                                    Log.d(tag, "WebSocket 消息: $text 设备: $serverUrl")
+                                    Log.d(tag, "收到 WebSocket 消息: $text\n设备: $serverUrl")
 
                                     lastReceivedMessage = text
 
                                     // 验证 Win 端的身份
-                                    if (!isVerified.get() && text.contains(VALIDATION_FIELD)) {
-                                        if (verifyWebSocketInfo(text) == true) {
-                                            isVerified.set(true)
-                                            message.let { webSocket.send(it) }
-                                        } else {
+                                    if (!isVerified.get()) {
+                                        if (!verifyWebSocketInfo(text)) {
                                             Log.e(tag, "WebSocket 验证失败: 设备 $serverUrl")
+                                            timeoutJob?.cancel() // 取消超时计时器
                                             webSocket.close(1000, "Win 端身份验证失败")
+                                            return
                                         }
+                                        isVerified.set(true)
                                     }
 
                                     // 判断是否收到确认消息
                                     if (text.contains(CONFIRMED_FIELD)) {
                                         Log.d(tag, "收到确认消息，关闭 WebSocket 连接")
+                                        timeoutJob?.cancel() // 取消超时计时器
                                         webSocket.close(1000, "消息已确认")
+                                        return
                                     }
 
-                                    resetConnectionTimeout(webSocket)
+                                    message.let { webSocket.send(it) } // 发送己方的 WebSocket 消息
+                                    timeoutJob?.cancel() // 取消旧的超时计时器
+                                    startConnectionTimeout(webSocket) // 开始新的超时计时器
                                 }
 
-                                /** 重置连接超时计时器 */
-                                private fun resetConnectionTimeout(webSocket: WebSocket) {
-                                    timeoutJob?.cancel()
-                                    startConnectionTimeout(webSocket)
-                                }
-
+                                /** 开始连接超时计时器 */
                                 private fun startConnectionTimeout(webSocket: WebSocket) {
                                     timeoutJob = CoroutineScope(Dispatchers.IO).launch {
                                         delay(MESSAGE_TIMEOUT)
 
-                                        if (lastReceivedMessage != null && !lastReceivedMessage!!.contains(
-                                                CONFIRMED_FIELD
-                                            )
-                                        ) {
-                                            if (retryCount < WEBSOCKET_MESSAGE_RETRY) {
-                                                retryCount++
-                                                Log.d(tag, "WebSocket 未收到确认消息，正在重发")
-                                                webSocket.send(message)
-                                            } else {
-                                                Log.d(tag, "WebSocket 重试次数已达到上限")
-                                                webSocket.close(1000, "未收到确认消息")
-                                            }
+                                        if (lastReceivedMessage == null) {
+                                            return@launch
                                         }
+
+                                        retryCount++
+                                        if (retryCount > WEBSOCKET_MESSAGE_RETRY) {
+                                            Log.d(tag, "WebSocket 重试次数已达到上限")
+                                            webSocket.close(1000, "未收到确认消息")
+                                            return@launch
+                                        }
+                                        Log.d(tag, "WebSocket 未收到确认消息，正在重发")
+                                        webSocket.send(message)
                                     }
                                 }
 
@@ -262,19 +260,29 @@ class WebSocketWorker(context: Context, workerParams: WorkerParameters) :
     }
 
     /** 校验 Win 端的 WebSocket验证信息 */
-    private fun verifyWebSocketInfo(verifyInfo: String): Boolean? {
-        // 分割加密内容和签名
-        val parts = verifyInfo.split(".")
-        if (parts.size != 3) return null
+    private fun verifyWebSocketInfo(verifyInfo: String): Boolean {
+        // 检查消息头
+        if (!verifyInfo.contains(VALIDATION_FIELD)) {
+            return false
+        }
 
-        val encryptedText = parts[1]
-        val signature = parts[2]
+        try {
+            // 分割加密内容和签名
+            val parts = verifyInfo.split(".")
+            if (parts.size != 3) throw Exception("Win 端的验证消息格式异常")
 
-        // 进行验证内容解密, Win 端需要传递设备 ID
-        val deviceId = keyHandler.decryptString(encryptedText) ?: return false
-        val publicKey =
-            globalHandler.getWindowsPublicKey(applicationContext, deviceId) ?: return false
-        return keyHandler.verifySignature(deviceId, signature, publicKey) // 校验签名
+            val encryptedText = parts[1]
+            val signature = parts[2]
+
+            // 进行验证内容解密, Win 端需要传递设备 ID
+            val deviceId = keyHandler.decryptString(encryptedText) ?: throw Exception()
+            val publicKey =
+                globalHandler.getWindowsPublicKey(applicationContext, deviceId) ?: throw Exception()
+            return keyHandler.verifySignature(deviceId, signature, publicKey) // 校验签名
+        } catch (ex: Exception) {
+            Log.e(tag, "校验 Win 端的 WebSocket验证信息时发生异常: $ex")
+            return false
+        }
     }
 }
 
