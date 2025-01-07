@@ -27,23 +27,27 @@ import android.view.animation.AccelerateDecelerateInterpolator
 import android.view.animation.Animation
 import android.view.animation.AnimationUtils
 import android.widget.ImageView
+import android.widget.Toast
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.appcompat.app.AlertDialog
 import androidx.cardview.widget.CardView
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
+import com.kongzue.dialogx.DialogX
+import com.kongzue.dialogx.dialogs.MessageDialog
+import com.kongzue.dialogx.util.TextInfo
+import com.kongzue.dialogxmaterialyou.style.MaterialYouStyle
 import com.otpautoforward.R
 import com.otpautoforward.activity.CaptureQRCodeActivity
 import com.otpautoforward.databinding.FragmentMainBinding
-import com.otpautoforward.handler.DeviceHandler
-import com.otpautoforward.handler.QRCodeHandler
-import com.otpautoforward.dataclass.SettingKey
-import com.otpautoforward.viewmodel.SettingsViewModel
-import com.google.android.material.snackbar.Snackbar
 import com.otpautoforward.databinding.FragmentPairDeviceinfoBinding
+import com.otpautoforward.dataclass.SettingKey
+import com.otpautoforward.handler.DeviceHandler
 import com.otpautoforward.handler.GlobalHandler
+import com.otpautoforward.handler.QRCodeHandler
+import com.otpautoforward.viewmodel.SettingsViewModel
+
 
 private const val tagF = "OTPAutoForward"
 
@@ -70,6 +74,8 @@ class MainFragment : Fragment() {
         _binding = FragmentMainBinding.inflate(inflater, container, false)
         _pairDeviceBinding = FragmentPairDeviceinfoBinding.inflate(inflater, container, false)
 
+        configDialogX()
+
         // 注册二维码启动器, 有权限的情况下直接启动扫码
         qrCodeLauncher =
             registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -80,6 +86,12 @@ class MainFragment : Fragment() {
                     Log.d(tagF, "相机调用失败或取消")
                 }
             }
+
+        return binding.root
+    }
+
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
 
         // 晃动手机图标动画效果
         binding.viewDeviceName.setOnClickListener {
@@ -122,15 +134,9 @@ class MainFragment : Fragment() {
         // 初始化配对按钮点击事件
         binding.viewQrPair.setOnClickListener { checkCameraPermission() }
         binding.viewQrPair.elevation = 0f
-        binding.viewCodePair.setOnClickListener { view ->
-            Snackbar.make(view, "功能暂未开通", Snackbar.LENGTH_LONG).setAction("Action", null)
-                .setAnchorView(R.id.fab).show()
+        binding.viewCodePair.setOnClickListener {
+            Toast.makeText(requireContext(), "功能暂未开通", Toast.LENGTH_LONG).show()
         }
-        return binding.root
-    }
-
-    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-        super.onViewCreated(view, savedInstanceState)
 
         // 前台获取设备名称与 IP 地址
         val deviceName = "${Build.MANUFACTURER} ${Build.MODEL}"
@@ -191,24 +197,31 @@ class MainFragment : Fragment() {
     }
 
     private fun showPermissionRationaleDialog() {
-        AlertDialog.Builder(requireContext()).setTitle("相机权限")
-            .setMessage("请授予相机权限用于扫描二维码").setPositiveButton("授予权限") { dialog, _ ->
-                dialog.dismiss()
+        MessageDialog.build()
+            .setTitle("相机权限请求")
+            .setMessage("请授予相机权限用于扫描二维码")
+            .setOkButton("授予权限") { _, _ ->
                 requestCameraPermissionLauncher.launch(Manifest.permission.CAMERA)
-            }.setNegativeButton("拒绝") { dialog, _ -> dialog.dismiss() }.show()
+                false
+            }
+            .setCancelButton("拒绝")
+            .show()
     }
 
     /** 相机权限被手动拒绝时跳转至设置页面 */
     private fun handlePermissionPermanentlyDenied() {
-        AlertDialog.Builder(requireContext()).setTitle("需要相机权限")
+        MessageDialog.build()
+            .setTitle("需要相机权限")
             .setMessage("相机权限被拒绝, 请前往设置授予权限")
-            .setPositiveButton("去设置") { dialog, _ ->
-                dialog.dismiss()
+            .setOkButton("去设置") { _, _ ->
                 val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
                     data = Uri.fromParts("package", requireContext().packageName, null)
                 }
                 startActivity(intent)
-            }.setNegativeButton("取消") { dialog, _ -> dialog.dismiss() }.show()
+                false
+            }
+            .setCancelButton("取消")
+            .show()
     }
 
     /** 请求相机权限 */
@@ -227,29 +240,23 @@ class MainFragment : Fragment() {
 
     /** 处理扫码结果 */
     private fun handleQRCodeResult(qrData: String?) {
-        qrData?.let {
-            val pairingInfo = qrCodeHandler.analyzeQRCode(it)
-            pairingInfo?.let {
-                try {
-                    // 保存配对信息并刷新页面
-                    qrCodeHandler.saveDeviceInfo(requireContext().applicationContext, pairingInfo)
-                    Handler(Looper.getMainLooper()).postDelayed({
-                        settingsViewModel.refreshPairedDevice.value = Unit
-                    }, 100)
+        try {
+            if (qrData == null) throw Exception("二维码数据为空")
 
-                    AlertDialog.Builder(requireContext()).setTitle("配对成功")
-                        .setMessage("设备 ${pairingInfo.deviceName} 已成功配对！")
-                        .setPositiveButton("确定") { dialog, _ -> dialog.dismiss() }.show()
-                } catch (e: Exception) {
-                    AlertDialog.Builder(requireContext()).setTitle("配对失败")
-                        .setMessage("保存配对信息或刷新页面失败: ${e.message}")
-                        .setPositiveButton("确定") { dialog, _ -> dialog.dismiss() }.show()
-                }
-            } ?: AlertDialog.Builder(requireContext()).setTitle("配对失败")
-                .setMessage("二维码解析失败")
-                .setPositiveButton("确定") { dialog, _ -> dialog.dismiss() }.show()
-        } ?: AlertDialog.Builder(requireContext()).setTitle("配对失败").setMessage("二维码数据为空")
-            .setPositiveButton("确定") { dialog, _ -> dialog.dismiss() }.show()
+            val pairingInfo = qrCodeHandler.analyzeQRCode(qrData)
+                ?: throw Exception("从二维码中解析到的配对信息为空")
+
+            // 保存配对信息并刷新页面
+            qrCodeHandler.saveDeviceInfo(requireContext(), pairingInfo)
+            settingsViewModel.refreshPairedDevice.value = Unit
+
+            Toast.makeText(requireContext(), "设备配对成功", Toast.LENGTH_LONG).show()
+
+        } catch (e: Exception) {
+            Toast.makeText(requireContext(), "配对失败", Toast.LENGTH_LONG).show()
+            Log.e(tagF, "二维码配对发生异常: " + e.message)
+            e.printStackTrace()
+        }
     }
 
     /** 刷新已配对的设备 */
@@ -572,6 +579,30 @@ class MainFragment : Fragment() {
                 Intent(activity, CaptureQRCodeActivity::class.java)
             qrCodeLauncher.launch(intent)
         }, 200)
+    }
+
+    /**
+     * 配置 DialogX,
+     * 仅在当前文件作用域生效
+     */
+    private fun configDialogX() {
+        DialogX.init(requireContext())
+        DialogX.globalStyle = MaterialYouStyle() // 设置为 MaterialYou 主题
+        MessageDialog.overrideExitDuration = 150 // 对话框淡去的动画持续时间
+        DialogX.backgroundColor = Color.parseColor("#FFFFFFFF") // 对话框背景颜色
+
+        // "确认" 按钮的样式
+        val okTextInfo = TextInfo()
+        okTextInfo.fontColor = Color.parseColor("#0F826E")
+        okTextInfo.isBold = true
+        okTextInfo.fontSize = 17
+        DialogX.okButtonTextInfo = okTextInfo
+
+        // 其他按钮样式
+        val cancelTextInfo = TextInfo()
+        cancelTextInfo.fontColor = Color.GRAY
+        cancelTextInfo.isBold = true
+        DialogX.buttonTextInfo = cancelTextInfo
     }
 
     override fun onDestroyView() {
