@@ -10,13 +10,12 @@ import com.otpautoforward.dataclass.PairedDeviceInfo
 import com.otpautoforward.dataclass.SettingKey
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.joinAll
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
 import org.json.JSONException
 import org.json.JSONObject
-import java.io.IOException
 import java.net.Inet4Address
 import java.net.InetSocketAddress
 import java.net.NetworkInterface
@@ -64,34 +63,34 @@ class GlobalHandler {
         val chunkSize = 50 // 每批次 50 个 IP
         val ipBatches = (1..254).chunked(chunkSize)
 
-        coroutineScope {
-            ipBatches.forEach { batch ->
-                val jobs = batch.map { i ->
-                    launch(Dispatchers.IO) {
-                        val ip = "$localNetworkPrefix.$i"
-                        try {
-                            withTimeout(1000) { // 扫描任务超时时间
-                                Socket().use { socket ->
-                                    val address = InetSocketAddress(ip, targetPort)
-                                    socket.connect(address, 200) // 连接探测的超时时间
-                                    synchronized(devices) {
-                                        val websocketUrl = "ws://$ip:$targetPort"
-                                        devices.add(websocketUrl)
-                                        Log.d(tag, "目标设备在线: $websocketUrl")
-                                    }
-                                }
-                            }
-                        } catch (e: TimeoutCancellationException) {
-                            Log.d(tag, "局域网设备扫描超时: IP = $ip")
-                        } catch (e: IOException) {
-                            // 扫到不在线的设备的时候, 这里异常会非常多, 不处理异常, 继续操作
-                        } catch (e: Exception) {
-                            Log.e(tag, "扫描局域网 IP = $ip 出现异常: ${e.message}")
+        suspend fun scanIp(ip: String) {
+            try {
+                withTimeout(1000) { // 扫描任务超时时间
+                    Socket().use { socket ->
+                        val address = InetSocketAddress(ip, targetPort)
+                        socket.connect(address, 200) // 连接探测的超时时间
+                        synchronized(devices) {
+                            val websocketUrl = "ws://$ip:$targetPort"
+                            devices.add(websocketUrl)
+                            Log.d(tag, "目标设备在线: $websocketUrl")
                         }
                     }
                 }
+            } catch (e: TimeoutCancellationException) {
+                Log.d(tag, "局域网设备扫描超时: IP = $ip")
+            } catch (e: Exception) {
+                Log.e(tag, "扫描局域网 IP = $ip 出现异常: $e")
+            }
+        }
 
-                jobs.joinAll()
+        coroutineScope {
+            ipBatches.forEach { batch ->
+                batch.map { i ->
+                    async(Dispatchers.IO) {
+                        val ip = "$localNetworkPrefix.$i"
+                        scanIp(ip)
+                    }
+                }.awaitAll()
             }
         }
 
@@ -104,22 +103,17 @@ class GlobalHandler {
 
     /** 获取局域网 IP 的前缀 */
     private fun getLocalNetworkPrefix(): String? {
-        try {
-            val interfaces = NetworkInterface.getNetworkInterfaces()
-            for (networkInterface in interfaces) {
-                val addresses = networkInterface.inetAddresses
-                for (address in addresses) {
-                    if (address is Inet4Address && !address.isLoopbackAddress) {
-                        val ip = address.hostAddress
-                        val prefix = ip?.substring(0, ip.lastIndexOf('.'))
-                        return prefix
-                    }
-                }
-            }
+        return try {
+            NetworkInterface.getNetworkInterfaces().asSequence()
+                .flatMap { it.inetAddresses.asSequence() }        // 展开 IP 地址
+                .filterIsInstance<Inet4Address>()                 // 筛选 IPv4 地址
+                .firstOrNull { !it.isLoopbackAddress }            // 找到第一个非回环地址
+                ?.hostAddress                                     // 提取 IP 地址
+                ?.substringBeforeLast('.')                 // 提取前缀
         } catch (e: SocketException) {
-            Log.e(tag, "获取局域网 IP 前缀失败")
+            Log.e(tag, "获取局域网 IP 前缀失败", e)
+            null
         }
-        return ""
     }
 
     /** 判断是否存在已配对的设备信息 返回 true 时表示至少存在一个已配对的设备 */
@@ -139,20 +133,19 @@ class GlobalHandler {
 
         for (deviceId in allDeviceIds) {
             val deviceInfoString = sharedPreferences.getString(deviceId, null)
+                ?: throw Exception("获取到的设备信息为空")
 
-            if (deviceInfoString != null) {
-                try {
-                    val deviceInfo = JSONObject(deviceInfoString)
-                    val pairingInfo = PairedDeviceInfo(
-                        deviceName = deviceInfo.getString("deviceName"),
-                        deviceId = deviceInfo.getString("deviceId"),
-                        deviceType = deviceInfo.getString("deviceType"),
-                        windowsPublicKey = deviceInfo.getString("windowsPublicKey"),
-                    )
-                    allDevicesInfo.add(pairingInfo)
-                } catch (e: JSONException) {
-                    Log.e(tag, "获取设备信息失败: deviceId: $deviceId", e)
-                }
+            try {
+                val deviceInfo = JSONObject(deviceInfoString)
+                val pairingInfo = PairedDeviceInfo(
+                    deviceName = deviceInfo.getString("deviceName"),
+                    deviceId = deviceInfo.getString("deviceId"),
+                    deviceType = deviceInfo.getString("deviceType"),
+                    windowsPublicKey = deviceInfo.getString("windowsPublicKey"),
+                )
+                allDevicesInfo.add(pairingInfo)
+            } catch (e: JSONException) {
+                Log.e(tag, "获取设备信息失败: deviceId: $deviceId", e)
             }
         }
 
@@ -164,12 +157,11 @@ class GlobalHandler {
         val sharedPreferences =
             context.getSharedPreferences(SettingKey.PairedDevices.key, Context.MODE_PRIVATE)
         val deviceInfoString = sharedPreferences.getString(deviceId, null)
-        return if (deviceInfoString != null) {
-            val deviceInfo = JSONObject(deviceInfoString)
-            deviceInfo.getString("windowsPublicKey")
-        } else {
+        val deviceInfo = deviceInfoString?.let { JSONObject(it) }
+        if (deviceInfo == null) {
             return null
         }
+        return deviceInfo.getString("windowsPublicKey")
     }
 
 }
