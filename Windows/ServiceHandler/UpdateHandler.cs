@@ -89,16 +89,14 @@ namespace OTPAutoForward.ServiceHandler
                     return;
                 }
 
-                if (latestVersion != CurrentVersion)
-                {
-                    _latestVersion = latestVersion;
-                    _downloadUrl = downloadUrl;
-                    ShowUpdateNotification(latestVersion);
-                }
-                else
+                if (latestVersion == CurrentVersion)
                 {
                     ShowToastNotification($"当前版本已是最新版\n当前版本: {CurrentVersion}");
                 }
+
+                _latestVersion = latestVersion;
+                _downloadUrl = downloadUrl;
+                ShowUpdateNotification(latestVersion);
             }
             catch (Exception ex)
             {
@@ -382,31 +380,29 @@ namespace OTPAutoForward.ServiceHandler
         private static string GetFileName(HttpContent content)
         {
             string fileName;
-            if (content?.Headers?.ContentDisposition != null)
-            {
-                var contentDisposition = content.Headers.ContentDisposition.ToString();
-
-                const string fileNamePattern =
-                    @"filename\*=UTF-8''(?<fileName>[^;]+)|filename=""(?<fileName>[^""]+)""|filename=(?<fileName>[^;]+)";
-                var match = Regex.Match(contentDisposition, fileNamePattern);
-
-                if (match.Success)
-                {
-                    // 提取并处理文件名
-                    fileName = match.Groups["fileName"].Value;
-                    if (contentDisposition.Contains("filename*="))
-                    {
-                        fileName = Uri.UnescapeDataString(fileName);
-                    }
-                }
-                else
-                {
-                    fileName = "update.exe"; // 无法匹配时, 使用默认文件名
-                }
-            }
-            else
+            if (content?.Headers?.ContentDisposition == null)
             {
                 fileName = "update.exe";
+                return fileName;
+            }
+
+            var contentDisposition = content.Headers.ContentDisposition.ToString();
+
+            const string fileNamePattern =
+                @"filename\*=UTF-8''(?<fileName>[^;]+)|filename=""(?<fileName>[^""]+)""|filename=(?<fileName>[^;]+)";
+            var match = Regex.Match(contentDisposition, fileNamePattern);
+
+            if (!match.Success)
+            {
+                fileName = "update.exe"; // 无法匹配时, 使用默认文件名
+                return fileName;
+            }
+
+            // 提取并处理文件名
+            fileName = match.Groups["fileName"].Value;
+            if (contentDisposition.Contains("filename*="))
+            {
+                fileName = Uri.UnescapeDataString(fileName);
             }
 
             return fileName;
