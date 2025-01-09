@@ -84,6 +84,10 @@ namespace OTPAutoForward.ServiceHandler
                 IconChar.Comment.ToBitmap(IconFont.Regular, 16, Color.Black),
                 (sender, args) => MainWindow.ShowToastNotification(testMessage)));
 
+            contextMenu.Items.Add(new ToolStripMenuItem("显示配对二维码",
+                IconChar.Link.ToBitmap(IconFont.Solid, 16, Color.Black),
+                (sender, args) => QRCodeHandler.ShowQRCode()));
+
             contextMenu.Items.Add(new ToolStripMenuItem("显示主界面",
                 IconChar.WindowRestore.ToBitmap(IconFont.Auto, 16, Color.Black),
                 (sender, args) => _onRestoreWindow()));

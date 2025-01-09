@@ -3,6 +3,7 @@ using System.Drawing;
 using System.IO;
 using System.Text.Json;
 using System.Windows.Media.Imaging;
+using Microsoft.Toolkit.Uwp.Notifications;
 using ZXing;
 using ZXing.Common;
 
@@ -43,7 +44,8 @@ namespace OTPAutoForward.ServiceHandler
                 Options = new EncodingOptions
                 {
                     Width = width,
-                    Height = height
+                    Height = height,
+                    Margin = 0
                 }
             };
 
@@ -86,6 +88,28 @@ namespace OTPAutoForward.ServiceHandler
                     return bitmapImage;
                 }
             }
+        }
+
+        /** 在 Toast 弹窗中显示配对二维码 */
+        public static void ShowQRCode()
+        {
+            var qrData = GenerateEncryptedQRCode();
+            var qrCodeImage = GenerateQrCodeImage(qrData, 1024, 1024);
+
+            var qrCodePath =
+                Path.Combine(Path.GetTempPath(), "qrcode.png"); // 将 BitmapImage 保存为临时文件
+            using (var fileStream = new FileStream(qrCodePath, FileMode.Create))
+            {
+                BitmapEncoder encoder = new PngBitmapEncoder();
+                encoder.Frames.Add(BitmapFrame.Create(qrCodeImage));
+                encoder.Save(fileStream);
+            }
+
+            new ToastContentBuilder()
+                .AddText("请用 App 端扫描该二维码以进行配对")
+                .AddInlineImage(new Uri(qrCodePath))
+                .SetToastDuration(ToastDuration.Long) // 设置为长时间显示(大概 30 秒)
+                .Show();
         }
     }
 }
