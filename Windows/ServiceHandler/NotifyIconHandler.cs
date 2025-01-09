@@ -239,16 +239,27 @@ namespace OTPAutoForward.ServiceHandler
         /** 提取短信中的关键信息 (验证码、识别码、电话号码等) */
         private static List<string> ExtractInfoFromMessage(string message)
         {
-            // 读取配置文件中的短信关键字
-            var keywordList = App.AppSettings.MessageKeyword;
-            if (keywordList != null)
+            try
             {
-                var keywords = new HashSet<string>(keywordList);
-                // 检查短信内容是否包含验证码关键词
-                if (!keywords.Any(message.Contains))
+                // 读取配置文件中的短信关键字
+                var keywordList = App.AppSettings.MessageKeyword;
+                
+                var keywords = keywordList?.ToHashSet() ?? new HashSet<string>();
+                if (keywords.Count == 0)
                 {
+                    Log.Warn("未配置验证码短信的提取关键字");
+                }
+                else if (!keywords.Any(message.Contains))
+                {
+                    // 检查短信内容是否包含验证码关键词
                     return new List<string>();
                 }
+            }
+            catch (Exception ex)
+            {
+                Log.Error($"Error processing keyword list: {ex.Message}");
+                Console.WriteLine("处理");
+
             }
 
             // 正则规则表
