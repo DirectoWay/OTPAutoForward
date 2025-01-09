@@ -21,10 +21,12 @@ namespace OTPAutoForward
         private static IConfiguration Configuration { get; }
         public static AppSettings AppSettings { get; private set; }
 
-        private IContainer _container;
+        private static IContainer _container;
 
         /** 托盘图标与托盘菜单栏 */
         private NotifyIconHandler _notifyIconHandler;
+
+        private WebSocketHandler _webSocketHandler;
 
         private static readonly ILog Log = LogManager.GetLogger(typeof(App));
 
@@ -49,7 +51,6 @@ namespace OTPAutoForward
         /** 配置依赖注入容器 */
         private static void ConfigureContainer(ContainerBuilder builder)
         {
-            builder.RegisterType<MainWindow>().SingleInstance();
             builder.RegisterType<NotifyIconHandler>().SingleInstance();
             builder.RegisterType<WebSocketHandler>().SingleInstance();
         }
@@ -72,12 +73,11 @@ namespace OTPAutoForward
 
             using (var scope = _container.BeginLifetimeScope())
             {
-                var mainWindow = scope.Resolve<MainWindow>();
                 _notifyIconHandler = scope.Resolve<NotifyIconHandler>();
-                var webSocketHandler = scope.Resolve<WebSocketHandler>();
+                _webSocketHandler = scope.Resolve<WebSocketHandler>();
 
+                _notifyIconHandler.Initialize();
                 KeyHandler.SetNotifyIconHandler(_notifyIconHandler);
-
 
                 if (!CheckWebSocketPort(AppSettings.WebSocketPort))
                 {
@@ -87,7 +87,7 @@ namespace OTPAutoForward
                     return;
                 }
 
-                webSocketHandler.StartWebSocketServer().ContinueWith(task =>
+                _webSocketHandler.StartWebSocketServer().ContinueWith(task =>
                 {
                     if (!task.IsFaulted) return;
                     MessageBox.Show("启动失败，WebSocket 服务启动失败", "核心服务异常",
@@ -96,19 +96,23 @@ namespace OTPAutoForward
                     _notifyIconHandler.Dispose();
                     Shutdown();
                 });
+            }
+        }
 
-                InitializeNotifyIcon(_notifyIconHandler);
-
-                // 判断程序启动时是否包含最小化参数
-                var isMinimized = e.Args.Contains("--StartMinimized");
-                if (isMinimized)
-                {
-                    RunInMinimized();
-                }
-                else
-                {
-                    mainWindow.Show();
-                }
+        /// <summary>
+        /// 从依赖注入容器中获取指定类型的实例
+        /// </summary>
+        /// <typeparam name="T">已经进行依赖注入管理的类型</typeparam>
+        /// <returns>指定类型的依赖注入实例</returns>
+        public static T Resolve<T>()
+        {
+            try
+            {
+                return _container.Resolve<T>();
+            }
+            catch (Autofac.Core.Registration.ComponentNotRegisteredException ex)
+            {
+                throw new InvalidOperationException($"类型 {typeof(T).Name} 未在依赖注入容器中注册。", ex);
             }
         }
 
@@ -216,31 +220,6 @@ namespace OTPAutoForward
                 Log.Fatal($"无法开放端口 {port}，错误信息: {ex.Message}");
                 Shutdown();
             }
-        }
-
-        /** 程序启动时初始化托盘图标 */
-        private void InitializeNotifyIcon(NotifyIconHandler notifyIconHandler)
-        {
-            notifyIconHandler.Initialize(() =>
-            {
-                using (var scope = _container.BeginLifetimeScope())
-                {
-                    var mainWindow = scope.Resolve<MainWindow>();
-                    mainWindow.Show();
-                    mainWindow.WindowState = WindowState.Normal;
-                    mainWindow.Activate();
-                }
-            }, () =>
-            {
-                notifyIconHandler.Dispose();
-                Shutdown();
-            });
-        }
-
-        /** 以最小化的方式启动程序 */
-        private static void RunInMinimized()
-        {
-            Console.WriteLine("程序正在后台运行..");
         }
 
         ///<summary>

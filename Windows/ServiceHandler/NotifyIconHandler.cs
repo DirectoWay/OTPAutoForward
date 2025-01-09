@@ -1,8 +1,10 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Windows.Forms;
 using Microsoft.Win32;
 using FontAwesome.Sharp;
@@ -17,16 +19,15 @@ namespace OTPAutoForward.ServiceHandler
     {
         private static readonly ILog Log = LogManager.GetLogger(typeof(NotifyIconHandler));
 
+        private readonly WebSocketHandler _webSocketHandler = App.Resolve<WebSocketHandler>();
+
         private NotifyIcon _notifyIcon;
-        private Action _onRestoreWindow;
-        private Action _onExitApplication;
+
         private readonly string _appName = App.AppSettings.AppName;
         private readonly string _iconPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "sms.ico");
 
-        public void Initialize(Action onRestoreWindow, Action onExitApplication)
+        public void Initialize()
         {
-            _onRestoreWindow = onRestoreWindow;
-            _onExitApplication = onExitApplication;
             if (!File.Exists(_iconPath))
             {
                 Log.Error($"托盘图标路径异常: {_iconPath}");
@@ -41,7 +42,9 @@ namespace OTPAutoForward.ServiceHandler
                 Text = _appName
             };
             InitializeContextMenu();
-            _notifyIcon.DoubleClick += (sender, args) => _onRestoreWindow();
+
+            _webSocketHandler.OnMessageReceived += ShowToastNotification;
+            ToastNotificationManagerCompat.OnActivated += OnToastActivated;
         }
 
         /** 初始化托盘菜单栏 */
@@ -82,23 +85,19 @@ namespace OTPAutoForward.ServiceHandler
 
             contextMenu.Items.Add(new ToolStripMenuItem("显示短信效果",
                 IconChar.Comment.ToBitmap(IconFont.Regular, 16, Color.Black),
-                (sender, args) => MainWindow.ShowToastNotification(testMessage)));
+                (sender, args) => ShowToastNotification(testMessage)));
 
             contextMenu.Items.Add(new ToolStripMenuItem("显示配对二维码",
                 IconChar.Link.ToBitmap(IconFont.Solid, 16, Color.Black),
                 (sender, args) => QRCodeHandler.ShowQRCode()));
-
-            contextMenu.Items.Add(new ToolStripMenuItem("显示主界面",
-                IconChar.WindowRestore.ToBitmap(IconFont.Auto, 16, Color.Black),
-                (sender, args) => _onRestoreWindow()));
 
             contextMenu.Items.Add(new ToolStripSeparator()); // 分隔符
 
             contextMenu.Items.Add(new ToolStripMenuItem("退出",
                 IconChar.ArrowRightFromBracket.ToBitmap(IconFont.Auto, 16, Color.Black), (sender, args) =>
                 {
-                    _notifyIcon.Visible = false; // 移除托盘图标
-                    _onExitApplication();
+                    Dispose();
+                    Application.Current.Shutdown();
                 }));
 
             _notifyIcon.ContextMenuStrip = contextMenu;
@@ -202,6 +201,131 @@ namespace OTPAutoForward.ServiceHandler
                 Console.WriteLine($"操作注册表时发生异常: {ex.Message}");
                 Log.Error($"操作注册表时发生异常: {ex.Message}");
             }
+        }
+
+        private static void ShowToastNotification(string message)
+        {
+            Application.Current.Dispatcher.Invoke(() =>
+            {
+                var toastBuilder = new ToastContentBuilder()
+                    .AddText(message);
+
+                // 提取短信中的关键信息并动态生成按钮
+                var extractedInfo = ExtractInfoFromMessage(message);
+
+                if (extractedInfo.Any())
+                {
+                    foreach (var value in extractedInfo)
+                    {
+                        // 限制按钮文本的长度
+                        var buttonText = value.Length > 20 ? value.Substring(0, 17) + "..." : value;
+                        toastBuilder.AddButton(new ToastButton()
+                                .SetContent(buttonText) // 按钮显示的内容
+                                .AddArgument("action", "copy")
+                                .AddArgument("message", value)) // 点击按钮时传递的内容
+                            .AddArgument("source", "WebSocketMessage"); // 给 Toast 弹窗添加来源标识
+                    }
+                }
+
+                // 点击 Toast 弹窗本身可以复制整条短信的内容
+                toastBuilder.AddArgument("action", "copy")
+                    .AddArgument("message", message)
+                    .AddArgument("source", "WebSocketMessage"); // 给 Toast 弹窗添加来源标识
+
+                toastBuilder.Show();
+            });
+        }
+
+        /** 提取短信中的关键信息 (验证码、识别码、电话号码等) */
+        private static List<string> ExtractInfoFromMessage(string message)
+        {
+            // 读取配置文件中的短信关键字
+            var keywordList = App.AppSettings.MessageKeyword;
+            if (keywordList != null)
+            {
+                var keywords = new HashSet<string>(keywordList);
+                // 检查短信内容是否包含验证码关键词
+                if (!keywords.Any(message.Contains))
+                {
+                    return new List<string>();
+                }
+            }
+
+            // 正则规则表
+            var patterns = new List<string>
+            {
+                // 提取 4 位数字，确保前后没有其他数字
+                @"(?<!\d)(\d{4})(?!\d)",
+
+                // 提取 6 位数字，确保前后没有其他数字
+                @"(?<!\d)(\d{6})(?!\d)",
+
+                // 识别码
+                @"(?:识别码|识别码是)\s*[:：]?\s*([A-Za-z0-9-_.]+)"
+            };
+
+            var uniqueResults = new HashSet<string>();
+
+            foreach (var value in from pattern in patterns
+                     select Regex.Matches(message, pattern)
+                     into matches
+                     from Match match in matches
+                     where match.Success && match.Groups.Count > 1
+                     select match.Groups[1].Value)
+            {
+                // 处理数字：只保留 4 位数和 6 位数的结果
+                if (Regex.IsMatch(value, @"^\d{4}$") || Regex.IsMatch(value, @"^\d{6}$"))
+                {
+                    // 确保提取的结果不是电话号码的子串
+                    if (!Regex.IsMatch(message, "(?:电话|致电|热线)[^0-9]*" + Regex.Escape(value)))
+                    {
+                        uniqueResults.Add(value);
+                    }
+                }
+                // 识别码等其他结果不做长度检查
+                else if (!string.IsNullOrEmpty(value))
+                {
+                    uniqueResults.Add(value);
+                }
+            }
+
+            return uniqueResults.ToList();
+        }
+
+        /** Toast 弹窗被点击时的事件 */
+        private static void OnToastActivated(ToastNotificationActivatedEventArgsCompat toastArgs)
+        {
+            Application.Current.Dispatcher.Invoke(() =>
+            {
+                var arguments = ToastArguments.Parse(toastArgs.Argument);
+
+                // 点击事件只针对特定标识的 Toast 弹窗生效
+                if (!arguments.Contains("source") || arguments["source"] != "WebSocketMessage")
+                    return;
+
+                if (arguments["action"] != "copy") return;
+
+                var textToCopy = arguments["message"];
+                CopyToClipboard(textToCopy);
+            });
+        }
+
+        /** 将短信内容复制进剪贴板 */
+        private static void CopyToClipboard(string text)
+        {
+            Application.Current.Dispatcher.Invoke(() =>
+            {
+                try
+                {
+                    Clipboard.Clear();
+                    Clipboard.SetDataObject(text);
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine(e);
+                    throw;
+                }
+            });
         }
 
         private static async void CheckUpdatesAsync()
