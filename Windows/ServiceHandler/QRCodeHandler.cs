@@ -1,11 +1,10 @@
 ﻿using System;
-using System.Drawing;
 using System.IO;
 using System.Text.Json;
-using System.Windows.Media.Imaging;
 using Microsoft.Toolkit.Uwp.Notifications;
 using ZXing;
 using ZXing.Common;
+
 
 namespace OTPAutoForward.ServiceHandler
 {
@@ -14,8 +13,10 @@ namespace OTPAutoForward.ServiceHandler
     ///  </summary>
     public static class QRCodeHandler
     {
+        private static string _qrCodePath;
+
         /** 生成加密后的二维码内容 */
-        public static string GenerateEncryptedQRCode()
+        private static string GenerateEncryptedQRCode()
         {
             // 创建配对信息
             var pairingInfo = new
@@ -35,12 +36,18 @@ namespace OTPAutoForward.ServiceHandler
             return qrContent;
         }
 
-        /** 生成二维码图像 */
-        public static BitmapImage GenerateQrCodeImage(string qrData, int width, int height)
+        /// <summary>
+        /// 生成二维码图像
+        /// </summary>
+        /// <param name="qrData">需要生成图像的内容</param>
+        /// <param name="width">二维码宽度</param>
+        /// <param name="height">二维码高度</param>
+        /// <returns>二维码图像的磁盘路径</returns>
+        private static string GenerateQrCodeImage(string qrData, int width, int height)
         {
-            var qrCodeWriter = new BarcodeWriterPixelData
+            var writer = new BarcodeWriter
             {
-                Format = BarcodeFormat.QR_CODE,
+                Format = BarcodeFormat.QR_CODE, 
                 Options = new EncodingOptions
                 {
                     Width = width,
@@ -48,68 +55,40 @@ namespace OTPAutoForward.ServiceHandler
                     Margin = 0
                 }
             };
-
-            // 生成像素数据
-            var pixelData = qrCodeWriter.Write(qrData);
-
-            using (var bitmap = new Bitmap(pixelData.Width, pixelData.Height,
-                       System.Drawing.Imaging.PixelFormat.Format32bppRgb))
+            var qrCodeImage = writer.Write(qrData);
+            var filePath = Path.Combine(Path.GetTempPath(), "QRCode.png");
+            using (var stream = File.OpenWrite(filePath))
             {
-                var bitmapData = bitmap.LockBits(
-                    new Rectangle(0, 0, pixelData.Width, pixelData.Height),
-                    System.Drawing.Imaging.ImageLockMode.WriteOnly,
-                    System.Drawing.Imaging.PixelFormat.Format32bppRgb
-                );
-                try
-                {
-                    // 拷贝像素数据到位图
-                    System.Runtime.InteropServices.Marshal.Copy(pixelData.Pixels, 0, bitmapData.Scan0,
-                        pixelData.Pixels.Length);
-                }
-                finally
-                {
-                    bitmap.UnlockBits(bitmapData);
-                }
-
-                // 将位图保存到内存流
-                using (var memory = new MemoryStream())
-                {
-                    bitmap.Save(memory, System.Drawing.Imaging.ImageFormat.Bmp);
-                    memory.Position = 0;
-
-                    // 加载 BitmapImage
-                    var bitmapImage = new BitmapImage();
-                    bitmapImage.BeginInit();
-                    bitmapImage.StreamSource = new MemoryStream(memory.ToArray()); // 确保流不被释放
-                    bitmapImage.CacheOption = BitmapCacheOption.OnLoad; // 确保立即加载流
-                    bitmapImage.EndInit();
-                    bitmapImage.Freeze(); // 确保线程安全
-
-                    return bitmapImage;
-                }
+                qrCodeImage.Save(stream, System.Drawing.Imaging.ImageFormat.Png);
             }
+
+            return filePath;
         }
 
         /** 在 Toast 弹窗中显示配对二维码 */
         public static void ShowQRCode()
         {
             var qrData = GenerateEncryptedQRCode();
-            var qrCodeImage = GenerateQrCodeImage(qrData, 1024, 1024);
-
-            var qrCodePath =
-                Path.Combine(Path.GetTempPath(), "qrcode.png"); // 将 BitmapImage 保存为临时文件
-            using (var fileStream = new FileStream(qrCodePath, FileMode.Create))
-            {
-                BitmapEncoder encoder = new PngBitmapEncoder();
-                encoder.Frames.Add(BitmapFrame.Create(qrCodeImage));
-                encoder.Save(fileStream);
-            }
-
+            _qrCodePath = GenerateQrCodeImage(qrData, 1024, 1024);
             new ToastContentBuilder()
                 .AddText("请用 App 端扫描该二维码以进行配对")
-                .AddInlineImage(new Uri(qrCodePath))
-                .SetToastDuration(ToastDuration.Long) // 设置为长时间显示(大概 30 秒)
-                .Show();
+                .AddInlineImage(new Uri(_qrCodePath))
+                .SetToastDuration(ToastDuration.Long)
+                .Show(); // 设置为长时间显示(大概 30 秒)
+
+            // 释放图像资源
+            var timer = new System.Timers.Timer(60000);
+            timer.Elapsed += (sender, e) =>
+            {
+                if (File.Exists(_qrCodePath))
+                {
+                    File.Delete(_qrCodePath);
+                }
+
+                timer.Stop();
+                timer.Dispose();
+            };
+            timer.Start();
         }
     }
 }
