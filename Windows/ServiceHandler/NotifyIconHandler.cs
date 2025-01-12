@@ -87,6 +87,10 @@ namespace OTPAutoForward.ServiceHandler
                 IconChar.Comment.ToBitmap(IconFont.Regular, 16, Color.Black),
                 (sender, args) => ShowToastNotification(testMessage)));
 
+            contextMenu.Items.Add(new ToolStripMenuItem("通过 IP 地址进行配对",
+                IconChar.Hashtag.ToBitmap(IconFont.Solid, 16, Color.Black),
+                (sender, args) => ShowIPNotification()));
+
             contextMenu.Items.Add(new ToolStripMenuItem("显示配对二维码",
                 IconChar.Link.ToBitmap(IconFont.Solid, 16, Color.Black),
                 (sender, args) => QRCodeHandler.ShowQRCode()));
@@ -243,7 +247,7 @@ namespace OTPAutoForward.ServiceHandler
             {
                 // 读取配置文件中的短信关键字
                 var keywordList = App.AppSettings.MessageKeyword;
-                
+
                 var keywords = keywordList?.ToHashSet() ?? new HashSet<string>();
                 if (keywords.Count == 0)
                 {
@@ -259,7 +263,6 @@ namespace OTPAutoForward.ServiceHandler
             {
                 Log.Error($"Error processing keyword list: {ex.Message}");
                 Console.WriteLine("处理");
-
             }
 
             // 正则规则表
@@ -356,6 +359,16 @@ namespace OTPAutoForward.ServiceHandler
                 Log.Error($"检查更新时发生异常: {ex.Message}");
                 Console.WriteLine($"更新检查失败: {ex.Message}");
             }
+        }
+
+        private static void ShowIPNotification()
+        {
+            var ip = ConnectInfoHandler.GetLocalIP();
+            new ToastContentBuilder()
+                .AddText($"您的 IP 地址是: {ip}")
+                .AddText("请在 App 端输入您的 IP 地址")
+                .SetToastDuration(ToastDuration.Long) // 设置为长时间显示(大概 30 秒)
+                .Show();
         }
 
         /** 释放托盘图标资源 */

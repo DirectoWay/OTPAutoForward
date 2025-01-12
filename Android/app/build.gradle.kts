@@ -63,6 +63,7 @@ android {
         implementation(libs.work.runtime.ktx)
         implementation(libs.dialogx)
         implementation(libs.dialogx.style)
+        implementation(libs.eventbus)
         testImplementation(libs.junit.junit)
         androidTestImplementation(libs.androidx.junit)
         androidTestImplementation(libs.androidx.espresso.core)

@@ -116,6 +116,21 @@ class GlobalHandler {
         }
     }
 
+    /** 记录已经匹配成功过的设备 */
+    fun saveDeviceInfo(context: Context, pairedDeviceInfo: PairedDeviceInfo) {
+        val sharedPreferences =
+            context.getSharedPreferences(SettingKey.PairedDevices.key, Context.MODE_PRIVATE)
+        val editor = sharedPreferences.edit()
+        val deviceInfo = JSONObject().apply {
+            put("deviceName", pairedDeviceInfo.deviceName)
+            put("deviceId", pairedDeviceInfo.deviceId)
+            put("deviceType", pairedDeviceInfo.deviceType)
+            put("windowsPublicKey", pairedDeviceInfo.windowsPublicKey)
+        }
+        editor.putString(pairedDeviceInfo.deviceId, deviceInfo.toString())
+        editor.apply()
+    }
+
     /** 判断是否存在已配对的设备信息 返回 true 时表示至少存在一个已配对的设备 */
     fun hasPairedDevice(context: Context): Boolean {
         val sharedPreferences =

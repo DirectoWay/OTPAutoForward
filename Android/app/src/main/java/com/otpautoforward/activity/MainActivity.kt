@@ -390,10 +390,7 @@ class MainActivity : AppCompatActivity() {
         sendOrderedBroadcast(intent, null)
     }
 
-    /**
-     * 配置 DialogX,
-     * 仅在当前文件作用域生效
-     */
+    /** 全局的 DialogX 配置 */
     private fun configDialogX() {
         DialogX.init(this)
         DialogX.globalStyle = MaterialYouStyle() // 设置为 MaterialYou 主题

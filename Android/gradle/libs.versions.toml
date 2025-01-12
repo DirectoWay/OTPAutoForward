@@ -2,6 +2,7 @@
 agp = "8.6.0"
 coreVersion = "3.4.1"
 dialogx = "0.0.50.beta30"
+eventbus = "3.3.1"
 gson = "2.10.1"
 kotlin = "1.9.0"
 coreKtx = "1.10.1"
@@ -26,6 +27,7 @@ androidx-localbroadcastmanager = { module = "androidx.localbroadcastmanager:loca
 core-v341 = { module = "com.google.zxing:core", version.ref = "coreVersion" }
 dialogx = { module = "com.github.kongzue.DialogX:DialogX", version.ref = "dialogx" }
 dialogx-style ={ module = "com.github.kongzue.DialogX:DialogXMaterialYou", version.ref = "dialogx"}
+eventbus = { module = "org.greenrobot:eventbus", version.ref = "eventbus" }
 gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
 androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }

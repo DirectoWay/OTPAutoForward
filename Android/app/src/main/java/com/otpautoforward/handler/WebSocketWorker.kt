@@ -9,47 +9,50 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.OutOfQuotaPolicy
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
+import com.otpautoforward.dataclass.WebSocketEvent
 import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
+import org.greenrobot.eventbus.EventBus
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
+import kotlin.math.abs
 
 /** Win 端提供 WebSocket 服务的端口号 */
 private const val WebSocketPort = 9224
 
-/** WebSocket 请求头自定义字段 */
+/** 建立 WebSocket 连接时, 请求头中的自定义字段 */
 private const val WebSocketHeaderField = "X-OTPAutoForward-Auth"
 
-/** WebSocket 请求头中必须包含的密钥 */
+/** 建立 WebSocket 连接时, 请求头密文中必须包含的内容 */
 private const val WebSocketHeaderKey = "OTPAForward-encryptedKey"
 
 /** 等待 Win 端回复 WebSocket 消息的时间 */
 private const val MESSAGE_TIMEOUT = 5 * 1000L
 
-/** Win 端没收到消息的时候, 重发消息的次数 */
-private const val WEBSOCKET_MESSAGE_RETRY = 1
-
-/** 用于验证 Win 端 WebSocket 身份的字段名称 */
+/** WebSocket 建立成功后, 验证 Win 端身份时, 消息头中必须包含的字段 */
 private const val VALIDATION_FIELD = "verification"
 
-/** Win 端 WebSocket 消息的确认字段 */
+/** 通过 IP 地址进行配对时, Win 端 Websocket 消息中必须包含的消息头与确认字段 */
+private const val PAIRING_FIELD = "pairByIp"
+
+private const val PAIRINFO_FIELD = "pairInfo"
+
+/** Win 端结束 WebSocket 连接时, 消息头中的确认字段 */
 private const val CONFIRMED_FIELD = "confirmed"
 
 /** 用于给 WorkManager 传递待发消息的 Key */
 private const val KEY_MESSAGE = "message"
+
+private const val KEY_WEBSOCKET = "websocketPath"
 
 /** WorkManager 操作异常后当前重试次数的 Key */
 const val KEY_RETRY_COUNT = "retry_count"
@@ -67,9 +70,12 @@ class WebSocketWorker(context: Context, workerParams: WorkerParameters) :
 
     companion object {
         /** 创建给 Win 端发送消息的 WorkRequest */
-        fun sendWebSocketMessage(context: Context, message: String) {
+        fun sendWebSocketMessage(context: Context, message: String, websocketPath: String? = null) {
 
-            val inputData = Data.Builder().putString(KEY_MESSAGE, message).build()
+            val inputData = Data.Builder()
+                .putString(KEY_MESSAGE, message)
+                .putString(KEY_WEBSOCKET, websocketPath)
+                .build()
 
             val expeditedWorkRequest =
                 OneTimeWorkRequestBuilder<WebSocketWorker>().setInputData(inputData)
@@ -85,8 +91,15 @@ class WebSocketWorker(context: Context, workerParams: WorkerParameters) :
     override suspend fun doWork(): Result {
         val currentRetryCount = inputData.getInt(KEY_RETRY_COUNT, 0)
         var message = inputData.getString(KEY_MESSAGE)
+        val webSocketPath = inputData.getString(KEY_WEBSOCKET)
+
         return try {
-            val webSocketInfo = globalHandler.getOnlineDevices(WebSocketPort)
+            val webSocketInfo = mutableListOf<String>()
+            if (webSocketPath != null) {
+                webSocketInfo.add(webSocketPath)
+            } else {
+                webSocketInfo.addAll(globalHandler.getOnlineDevices(WebSocketPort))
+            }
 
             if (message == null) {
                 Log.e(tag, "WorkManager 获取 WebSocket 待发消息时异常")
@@ -120,124 +133,9 @@ class WebSocketWorker(context: Context, workerParams: WorkerParameters) :
 
     private suspend fun connectWebSocket(webSocketInfo: List<String>, message: String) {
         withContext(Dispatchers.IO) {
-            /** 每个设备的 WebSocket连接状态 */
-            val webSocketRefs = webSocketInfo.map { AtomicReference<WebSocket>() }
-
-            val deferredResults = webSocketInfo.mapIndexed { index, serverUrl ->
+            val deferredResults = webSocketInfo.map { serverUrl ->
                 async {
-                    webSocketRefs[index].let { webSocketRef ->
-                        try {
-                            val client = OkHttpClient.Builder()
-                                .pingInterval(30, TimeUnit.SECONDS) // 保持连接活跃
-                                .build()
-
-                            val request = Request.Builder().url(serverUrl)
-                                .addHeader(WebSocketHeaderField, generateWebSocketHeader())
-                                .build()
-
-                            val connectionResult = CompletableDeferred<WebSocket?>()
-
-                            val webSocketListener = object : WebSocketListener() {
-                                private var timeoutJob: Job? = null
-
-                                /** WebSocket消息重发次数 */
-                                private var retryCount = 0
-
-                                /** Win 端回复的最近一条消息 */
-                                private var lastReceivedMessage: String? = null
-
-                                /** Win 端身份验证标识, true 表示本次连接中该设备已通过验证 */
-                                private val isVerified = AtomicBoolean(false)
-
-                                override fun onOpen(
-                                    webSocket: WebSocket,
-                                    response: okhttp3.Response
-                                ) {
-                                    Log.d(tag, "WebSocket 连接成功: $serverUrl")
-                                    webSocketRef.set(webSocket)
-                                    // 等待 Win 端传递他自己的身份信息
-                                    connectionResult.complete(webSocket)
-                                    startConnectionTimeout(webSocket)
-                                }
-
-                                override fun onMessage(webSocket: WebSocket, text: String) {
-                                    Log.d(tag, "收到 WebSocket 消息: $text\n设备: $serverUrl")
-
-                                    lastReceivedMessage = text
-
-                                    // 验证 Win 端的身份
-                                    if (!isVerified.get()) {
-                                        if (!verifyWebSocketInfo(text)) {
-                                            Log.e(tag, "WebSocket 验证失败: 设备 $serverUrl")
-                                            timeoutJob?.cancel() // 取消超时计时器
-                                            webSocket.close(1000, "Win 端身份验证失败")
-                                            return
-                                        }
-                                        isVerified.set(true)
-                                    }
-
-                                    // 判断是否收到确认消息
-                                    if (text.contains(CONFIRMED_FIELD)) {
-                                        Log.d(tag, "收到确认消息，关闭 WebSocket 连接")
-                                        timeoutJob?.cancel() // 取消超时计时器
-                                        webSocket.close(1000, "消息已确认")
-                                        return
-                                    }
-
-                                    message.let { webSocket.send(it) } // 发送己方的 WebSocket 消息
-                                    timeoutJob?.cancel() // 取消旧的超时计时器
-                                    startConnectionTimeout(webSocket) // 开始新的超时计时器
-                                }
-
-                                /** 开始连接超时计时器 */
-                                private fun startConnectionTimeout(webSocket: WebSocket) {
-                                    timeoutJob = CoroutineScope(Dispatchers.IO).launch {
-                                        delay(MESSAGE_TIMEOUT)
-
-                                        if (lastReceivedMessage == null) {
-                                            return@launch
-                                        }
-
-                                        retryCount++
-                                        if (retryCount > WEBSOCKET_MESSAGE_RETRY) {
-                                            Log.d(tag, "WebSocket 重试次数已达到上限")
-                                            webSocket.close(1000, "未收到确认消息")
-                                            return@launch
-                                        }
-                                        Log.d(tag, "WebSocket 未收到确认消息，正在重发")
-                                        webSocket.send(message)
-                                    }
-                                }
-
-                                override fun onFailure(
-                                    webSocket: WebSocket,
-                                    t: Throwable,
-                                    response: okhttp3.Response?
-                                ) {
-                                    Log.e(tag, "WebSocket 连接失败: ${t.message}, 设备: $serverUrl")
-                                    connectionResult.complete(null)
-                                }
-
-                                override fun onClosed(
-                                    webSocket: WebSocket,
-                                    code: Int,
-                                    reason: String
-                                ) {
-                                    Log.d(tag, "WebSocket 已关闭: $reason, 设备: $serverUrl")
-                                    webSocket.close(1000, reason)
-                                    connectionResult.complete(webSocket)
-                                }
-                            }
-
-                            client.newWebSocket(request, webSocketListener)
-
-                            // 返回 WebSocket 连接对象
-                            connectionResult.await()
-                        } catch (e: Exception) {
-                            Log.e(tag, "连接 WebSocket 过程中出现异常: ${e.message}")
-                            null
-                        }
-                    }
+                    handleWebSocket(serverUrl, message)
                 }
             }
 
@@ -248,6 +146,96 @@ class WebSocketWorker(context: Context, workerParams: WorkerParameters) :
             if (failedDevices.isNotEmpty()) {
                 Log.w(tag, "${failedDevices.size}台设备未能成功连接")
             }
+        }
+    }
+
+    /** 处理每个设备的 WebSocket 连接状态 */
+    private suspend fun handleWebSocket(serverUrl: String, message: String): WebSocket? {
+        val webSocketRef = AtomicReference<WebSocket>()
+        val client = OkHttpClient.Builder()
+            .pingInterval(30, TimeUnit.SECONDS)
+            .build()
+
+        val request = Request.Builder().url(serverUrl)
+            .addHeader(WebSocketHeaderField, generateWebSocketHeader())
+            .build()
+
+        val connectionResult = CompletableDeferred<WebSocket?>()
+
+        fun webSocketComplete(result: WebSocket?) {
+            if (!connectionResult.isCompleted) {
+                connectionResult.complete(result)
+            }
+        }
+
+        val webSocketListener = object : WebSocketListener() {
+            private var lastReceivedMessage: String? = null
+            private val isVerified = AtomicBoolean(false)
+
+            override fun onOpen(webSocket: WebSocket, response: okhttp3.Response) {
+                Log.d(tag, "WebSocket 连接成功: $serverUrl")
+                webSocketRef.set(webSocket)
+                webSocketComplete(webSocket)
+            }
+
+            override fun onMessage(webSocket: WebSocket, text: String) {
+                Log.d(tag, "收到 WebSocket 消息: $text\n设备: $serverUrl")
+                lastReceivedMessage = text
+
+                if (!isVerified.get() && !handleVerification(webSocket, text)) return
+                if (handleConfirmedMessage(webSocket, text)) return
+
+                if (text.contains(PAIRINFO_FIELD)) {
+                    EventBus.getDefault().post(WebSocketEvent(text))
+                    return
+                }
+                webSocket.send(message)
+            }
+
+            private fun handleVerification(webSocket: WebSocket, text: String): Boolean {
+                if (text.contains(PAIRING_FIELD)) {
+                    if (!verifyPairingField(text)) {
+                        closeWithFailure(webSocket, "通过 IP 进行配对时 Win 端身份验证失败")
+                        return false
+                    }
+                } else if (!verifyWebSocketInfo(text)) {
+                    closeWithFailure(webSocket, "Win 端身份验证失败")
+                    return false
+                }
+                isVerified.set(true)
+                return true
+            }
+
+            private fun handleConfirmedMessage(webSocket: WebSocket, text: String): Boolean {
+                if (!text.contains(CONFIRMED_FIELD)) return false
+                Log.d(tag, "收到确认消息，关闭 WebSocket 连接")
+                webSocket.close(1000, "消息已确认")
+                return true
+            }
+
+            private fun closeWithFailure(webSocket: WebSocket, reason: String) {
+                Log.e(tag, "WebSocket 验证失败: $serverUrl")
+                webSocket.close(1000, reason)
+                webSocketComplete(null)
+            }
+
+            override fun onFailure(webSocket: WebSocket, t: Throwable, response: okhttp3.Response?) {
+                Log.e(tag, "WebSocket 连接失败: ${t.message}, 设备: $serverUrl")
+                webSocketComplete(null)
+            }
+
+            override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
+                Log.d(tag, "WebSocket 已关闭: $reason, 设备: $serverUrl")
+                webSocketComplete(webSocket)
+            }
+        }
+
+        client.newWebSocket(request, webSocketListener)
+        return try {
+            connectionResult.await()
+        } catch (e: Exception) {
+            Log.e(tag, "连接 WebSocket 过程中出现异常: ${e.message}")
+            null
         }
     }
 
@@ -281,6 +269,40 @@ class WebSocketWorker(context: Context, workerParams: WorkerParameters) :
             return keyHandler.verifySignature(deviceId, signature, publicKey) // 校验签名
         } catch (ex: Exception) {
             Log.e(tag, "校验 Win 端的 WebSocket验证信息时发生异常: $ex")
+            return false
+        }
+    }
+
+    private fun verifyPairingField(message: String): Boolean {
+        // 检查消息头
+        if (!message.contains(PAIRING_FIELD)) {
+            return false
+        }
+
+        try {
+            // 分割消息头和消息内容
+            val parts = message.split(".")
+            if (parts.size != 2) throw Exception("通过 IP 地址进行配对时, Win 端的验证消息不符合格式")
+
+            val encryptedText = parts[1] // 消息正文
+
+            val plainText = keyHandler.decryptString(encryptedText) ?: throw Exception()
+
+            // 分割用于验证的字段和时间戳
+            val messageParts = plainText.split("+")
+            if (messageParts.size != 2) throw Exception("通过 IP 地址进行配对时, Win 端的验证内容不符合格式")
+
+            val pairInfoField = messageParts[0] // 用于验证的字段
+            if (pairInfoField != PAIRING_FIELD) return false
+
+            val serverTimestamp = messageParts[1].toLong() // Win 端发来的时间戳
+            val timestamp = System.currentTimeMillis() / 1000 // 精准到秒即可, 与 Win 端的时间戳格式保持一致
+
+            val differenceInSeconds = abs(timestamp - serverTimestamp)
+            return differenceInSeconds <= MESSAGE_TIMEOUT
+
+        } catch (ex: Exception) {
+            Log.e(tag, "通过 IP 进行配对时, Win 端身份校验异常: $ex")
             return false
         }
     }

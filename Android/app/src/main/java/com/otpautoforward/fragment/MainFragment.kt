@@ -19,7 +19,10 @@ import android.os.Looper
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.provider.Settings
+import android.text.InputFilter
+import android.text.InputType
 import android.util.Log
+import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -34,19 +37,25 @@ import androidx.cardview.widget.CardView
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
-import com.kongzue.dialogx.DialogX
+import com.kongzue.dialogx.dialogs.InputDialog
 import com.kongzue.dialogx.dialogs.MessageDialog
+import com.kongzue.dialogx.style.MaterialStyle
+import com.kongzue.dialogx.util.InputInfo
 import com.kongzue.dialogx.util.TextInfo
-import com.kongzue.dialogxmaterialyou.style.MaterialYouStyle
 import com.otpautoforward.R
 import com.otpautoforward.activity.CaptureQRCodeActivity
 import com.otpautoforward.databinding.FragmentMainBinding
 import com.otpautoforward.databinding.FragmentPairDeviceinfoBinding
 import com.otpautoforward.dataclass.SettingKey
+import com.otpautoforward.dataclass.WebSocketEvent
 import com.otpautoforward.handler.DeviceHandler
 import com.otpautoforward.handler.GlobalHandler
-import com.otpautoforward.handler.QRCodeHandler
+import com.otpautoforward.handler.PairHandler
+import com.otpautoforward.handler.WebSocketWorker
 import com.otpautoforward.viewmodel.SettingsViewModel
+import org.greenrobot.eventbus.EventBus
+import org.greenrobot.eventbus.Subscribe
+import org.greenrobot.eventbus.ThreadMode
 
 
 private const val tagF = "OTPAutoForward"
@@ -61,20 +70,24 @@ class MainFragment : Fragment() {
     private val pairDeviceBinding get() = _pairDeviceBinding!!
 
     private val globalHandler = GlobalHandler()
-    private val qrCodeHandler = QRCodeHandler()
+    private val pairHandler = PairHandler()
 
     private lateinit var qrCodeLauncher: ActivityResultLauncher<Intent>
 
     lateinit var settingIcon: ImageView
     private lateinit var rotateAnimation: Animation
+    private lateinit var deviceName: String
+
+    override fun onStart() {
+        super.onStart()
+        EventBus.getDefault().register(this)
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
     ): View {
         _binding = FragmentMainBinding.inflate(inflater, container, false)
         _pairDeviceBinding = FragmentPairDeviceinfoBinding.inflate(inflater, container, false)
-
-        configDialogX()
 
         // 注册二维码启动器, 有权限的情况下直接启动扫码
         qrCodeLauncher =
@@ -134,13 +147,12 @@ class MainFragment : Fragment() {
         // 初始化配对按钮点击事件
         binding.viewQrPair.setOnClickListener { checkCameraPermission() }
         binding.viewQrPair.elevation = 0f
-        binding.viewCodePair.setOnClickListener {
-            Toast.makeText(requireContext(), "功能暂未开通", Toast.LENGTH_LONG).show()
-        }
+        binding.viewCodePair.setOnClickListener { showIpInputDialog() }
 
         // 前台获取设备名称与 IP 地址
-        val deviceName = "${Build.MANUFACTURER} ${Build.MODEL}"
+        deviceName = "${Build.MANUFACTURER} ${Build.MODEL}"
         val deviceIPAddress = globalHandler.getDeviceIPAddress(requireContext())
+
         binding.deviceName.text = deviceName
         binding.deviceIPAddress.text = deviceIPAddress
 
@@ -241,21 +253,77 @@ class MainFragment : Fragment() {
     /** 处理扫码结果 */
     private fun handleQRCodeResult(qrData: String?) {
         try {
-            if (qrData == null) throw Exception("二维码数据为空")
-
-            val pairingInfo = qrCodeHandler.analyzeQRCode(qrData)
-                ?: throw Exception("从二维码中解析到的配对信息为空")
+            val pairingInfo = pairHandler.analyzeQRCode(qrData)
 
             // 保存配对信息并刷新页面
-            qrCodeHandler.saveDeviceInfo(requireContext(), pairingInfo)
+            globalHandler.saveDeviceInfo(requireContext(), pairingInfo)
             settingsViewModel.refreshPairedDevice.value = Unit
 
             Toast.makeText(requireContext(), "设备配对成功", Toast.LENGTH_LONG).show()
-
         } catch (e: Exception) {
             Toast.makeText(requireContext(), "配对失败", Toast.LENGTH_LONG).show()
-            Log.e(tagF, "二维码配对发生异常: " + e.message)
-            e.printStackTrace()
+            Log.e(tagF, "二维码配对发生异常: $e")
+        }
+    }
+
+    private fun showIpInputDialog() {
+        val textInfo = TextInfo()
+        textInfo.gravity = Gravity.CENTER
+
+        val inputInfo = InputInfo()
+        inputInfo.textInfo = textInfo
+        inputInfo.cursorColor = Color.parseColor("#0F826E")
+        inputInfo.bottomLineColor = Color.BLACK
+        inputInfo.maX_LENGTH = 15
+        inputInfo.inputType = InputType.TYPE_CLASS_PHONE
+        val ipInputFilter = InputFilter { source, _, _, dest, _, _ ->
+            val result = dest.toString() + source
+            // 只能输入 IPv4 格式的内容
+            val ipRegex = Regex(
+                "^((25[0-5]|2[0-4][0-9]|[0-1]?[0-9][0-9]?)\\.){0,3}" +
+                        "(25[0-5]|2[0-4][0-9]|[0-1]?[0-9][0-9]?)?\$"
+            )
+            if (result.matches(ipRegex)) null else ""
+        }
+        inputInfo.addInputFilter(ipInputFilter)
+
+        val inputDialog = InputDialog.build()
+        inputDialog
+            .setInputInfo(inputInfo)
+            .setStyle(MaterialStyle.style())
+            .setRadius(75F)
+            .setCancelable(false)
+            .setTitle("输入 IP 地址")
+            .setMessage("请输入 Windows 端提供的 IP 地址")
+            .setOkButton("确定")
+            { _, _ ->
+                pairByIpAddress(inputDialog.getInputText())
+                false
+            }
+            .setCancelButton("取消")
+            .show()
+    }
+
+    private fun pairByIpAddress(ipAddress: String) {
+        val webSocketPath = "ws://$ipAddress:9224/pair"
+        WebSocketWorker.sendWebSocketMessage(requireContext(), "设备 $deviceName 请求配对", webSocketPath)
+    }
+
+    @Subscribe(threadMode = ThreadMode.MAIN)
+    fun onWebSocketMessageEvent(event: WebSocketEvent) {
+        val message = event.message
+        try {
+            val pairingInfo = pairHandler.analyzePairInfo(message)
+                ?: throw Exception("从 WebSocket 消息中解析到的配对信息为空")
+
+            // 保存配对信息并刷新页面
+            globalHandler.saveDeviceInfo(requireContext(), pairingInfo)
+            settingsViewModel.refreshPairedDevice.value = Unit
+
+            Toast.makeText(requireContext(), "设备配对成功", Toast.LENGTH_LONG).show()
+        } catch (e: Exception) {
+            Toast.makeText(requireContext(), "配对失败", Toast.LENGTH_LONG).show()
+            Log.e(tag, "通过 IP 进行配对时发生异常: " + e.printStackTrace())
         }
     }
 
@@ -581,33 +649,14 @@ class MainFragment : Fragment() {
         }, 200)
     }
 
-    /**
-     * 配置 DialogX,
-     * 仅在当前文件作用域生效
-     */
-    private fun configDialogX() {
-        DialogX.init(requireContext())
-        DialogX.globalStyle = MaterialYouStyle() // 设置为 MaterialYou 主题
-        MessageDialog.overrideExitDuration = 150 // 对话框淡去的动画持续时间
-        DialogX.backgroundColor = Color.parseColor("#FFFFFFFF") // 对话框背景颜色
-
-        // "确认" 按钮的样式
-        val okTextInfo = TextInfo()
-        okTextInfo.fontColor = Color.parseColor("#0F826E")
-        okTextInfo.isBold = true
-        okTextInfo.fontSize = 17
-        DialogX.okButtonTextInfo = okTextInfo
-
-        // 其他按钮样式
-        val cancelTextInfo = TextInfo()
-        cancelTextInfo.fontColor = Color.GRAY
-        cancelTextInfo.isBold = true
-        DialogX.buttonTextInfo = cancelTextInfo
-    }
-
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null
+    }
+
+    override fun onStop() {
+        super.onStop()
+        EventBus.getDefault().unregister(this)
     }
 }
 

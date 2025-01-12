@@ -4,9 +4,12 @@ using System.IO;
 using System.Net;
 using System.Net.WebSockets;
 using System.Text;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Windows;
 using log4net;
+using Microsoft.Toolkit.Uwp.Notifications;
 
 namespace OTPAutoForward.ServiceHandler
 {
@@ -31,6 +34,10 @@ namespace OTPAutoForward.ServiceHandler
 
         /** 用于验证 WebSocket 身份的字段名称 */
         private const string ValidationField = "verification";
+
+        private const string PairingField = "pairByIp";
+
+        private const string PairInfoField = "pairInfo";
 
         /** WebSocket 消息的确认字段 */
         private const string ConfirmedField = "confirmed";
@@ -86,8 +93,7 @@ namespace OTPAutoForward.ServiceHandler
             catch (Exception ex)
             {
                 Log.Fatal($"启动 WebSocket 服务器时发生错误: {ex.Message}");
-                Console.WriteLine($"启动 WebSocket 服务器时发生错误: {ex.Message}");
-                throw;
+                Console.WriteLine($"启动 WebSocket 服务器时发生错误: {ex}");
             }
             finally
             {
@@ -101,22 +107,7 @@ namespace OTPAutoForward.ServiceHandler
             while (_httpListener?.IsListening == true)
             {
                 var context = await _httpListener.GetContextAsync();
-                if (context.Request.IsWebSocketRequest)
-                {
-                    // 验证请求头中的认证信息
-                    if (VerifyWebSocketHeader(context.Request.Headers))
-                    {
-                        var webSocketContext = await context.AcceptWebSocketAsync(null);
-                        await HandleWebSocketConnectionAsync(webSocketContext.WebSocket);
-                        continue;
-                    }
-
-                    Log.Warn("收到非法的 WebSocket 请求");
-                    Console.WriteLine(DateTime.Now + " - 收到非法的 WebSocket 请求");
-                    context.Response.StatusCode = 401; // 未授权
-                    context.Response.Close();
-                    continue;
-                }
+                Console.WriteLine("收到请求, 请求地址: " + context.Request.Url);
 
                 // 回应客户端的 Ping 请求
                 if (context.Request.Url?.AbsolutePath == "/ping")
@@ -128,14 +119,51 @@ namespace OTPAutoForward.ServiceHandler
                     }
 
                     context.Response.Close();
+                    continue;
+                }
+
+                if (context.Request.Url?.AbsolutePath.Contains("/pair") == true)
+                {
+                    // 验证请求头中的认证信息
+                    if (VerifyWebSocketHeader(context.Request.Headers))
+                    {
+                        var webSocketContext = await context.AcceptWebSocketAsync(null);
+                        await PairByIpAddressAsync(webSocketContext.WebSocket);
+                        continue;
+                    }
+
+                    InvalidRequest(context);
+                    continue;
+                }
+
+                if (context.Request.IsWebSocketRequest)
+                {
+                    // 验证请求头中的认证信息
+                    if (VerifyWebSocketHeader(context.Request.Headers))
+                    {
+                        var webSocketContext = await context.AcceptWebSocketAsync(null);
+                        await HandleSmsAsync(webSocketContext.WebSocket);
+                        continue;
+                    }
+
+                    InvalidRequest(context);
+                    continue;
                 }
 
                 Log.Warn($"收到未处理路径的请求: {context.Request.Url?.AbsolutePath}");
                 Console.WriteLine(DateTime.Now + $" - 收到未处理路径的请求: {context.Request.Url?.AbsolutePath}");
-                
+
                 context.Response.StatusCode = 400;
                 context.Response.Close();
             }
+        }
+
+        private static void InvalidRequest(HttpListenerContext context)
+        {
+            Log.Warn("收到非法的 WebSocket 请求");
+            Console.WriteLine(DateTime.Now + " - 收到非法的 WebSocket 请求");
+            context.Response.StatusCode = 401; // 未授权
+            context.Response.Close();
         }
 
         /// <summary>
@@ -183,100 +211,157 @@ namespace OTPAutoForward.ServiceHandler
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"WebSocket 请求头验证异常: {ex.Message}");
+                Console.WriteLine($"WebSocket 请求头验证异常: {ex}");
                 return false;
             }
         }
 
-        /** 处理客户端的 WebSocket 连接请求 */
-        private async Task HandleWebSocketConnectionAsync(WebSocket webSocket)
+        /** 处理 App 端转发过来的短信 */
+        private async Task HandleSmsAsync(WebSocket webSocket)
         {
             var buffer = new byte[1024];
             try
             {
-                // 往 App 端发送 Win 端的身份验证信息
                 var verifyInfo = GenerateWebsocketVerifyInfo();
-                await webSocket.SendAsync(new ArraySegment<byte>(verifyInfo), WebSocketMessageType.Text, true,
-                    CancellationToken.None);
+                await SendWebSocketMessage(webSocket, verifyInfo);
 
                 while (webSocket.State == WebSocketState.Open)
                 {
-                    var result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
-
-                    if (result.MessageType == WebSocketMessageType.Close)
-                    {
-                        Log.Info("App 端主动关闭了 WebSocket 连接");
-                        await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing",
-                            CancellationToken.None);
-                        continue;
-                    }
-
-                    if (result.MessageType != WebSocketMessageType.Text)
-                    {
-                        Console.WriteLine("收到了不符合规范的 WebSocket 报文");
-                        Log.Warn("收到了不符合规范的 WebSocket 报文");
-                        continue;
-                    }
-
-                    var message = Encoding.UTF8.GetString(buffer, 0, result.Count);
-                    message = KeyHandler.DecryptString(message); // 解密 App 端发来的消息
-                    Console.WriteLine(DateTime.Now + message);
-                    Log.Info("已收到来自 App 端的消息:" + message);
-
-                    if (string.IsNullOrWhiteSpace(message))
-                    {
-                        Log.Warn("收到 App 端的 WebSocket 空消息");
-                        Console.WriteLine("收到空消息，忽略处理");
-                        continue;
-                    }
+                    var message = await ReceiveWebSocketMessage(webSocket, buffer);
+                    if (message == null) continue;
 
                     ReceivedMessages.Enqueue(message);
+                    OnMessageReceived?.Invoke(message);
 
-                    try
-                    {
-                        OnMessageReceived?.Invoke(message);
-                    }
-                    catch (Exception ex)
-                    {
-                        Log.Error($"消息处理订阅触发异常: {ex.Message}");
-                        Console.WriteLine($"消息处理订阅触发异常: {ex.Message}");
-                    }
-
-                    // 发送确认消息给 App 端
-                    var responseMessage = ConfirmedField + "." + $"已收到消息: {message}";
-                    var responseBuffer = Encoding.UTF8.GetBytes(responseMessage);
-                    await webSocket.SendAsync(new ArraySegment<byte>(responseBuffer), WebSocketMessageType.Text,
-                        true,
-                        CancellationToken.None);
-                    Console.WriteLine($"{DateTime.Now}已发送确认消息");
-                    Log.Info("已发送确认消息");
+                    var responseMessage = $"{ConfirmedField}.已收到消息: {message}";
+                    await SendWebSocketMessage(webSocket, responseMessage);
+                    Console.WriteLine("已发送确认消息");
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"WebSocket 异常: {ex.Message}");
+                Console.WriteLine($"WebSocket 异常: {ex}");
                 Log.Error($"WebSocket 异常: {ex.Message}");
             }
             finally
             {
-                if (webSocket.State != WebSocketState.Closed && webSocket.State != WebSocketState.Aborted)
-                {
-                    Console.WriteLine($"WebSocket 当前状态: {webSocket.State}. 即将关闭连接...");
-                    Log.Info($"WebSocket 当前状态: {webSocket.State}. 即将关闭连接...");
-                    await webSocket.CloseAsync(WebSocketCloseStatus.InternalServerError,
-                        "WebSocket 连接异常中断", CancellationToken.None);
-                    Console.WriteLine(
-                        $"WebSocket 关闭状态: {webSocket.CloseStatus}, 描述: {webSocket.CloseStatusDescription}");
-                    Log.Info($"WebSocket 关闭状态: {webSocket.CloseStatus}, 描述: {webSocket.CloseStatusDescription}");
-                }
-
-                webSocket.Dispose();
-                Console.WriteLine("WebSocket 连接已关闭");
-                Log.Info("WebSocket 连接已关闭");
+                await CloseWebSocket(webSocket);
             }
         }
 
-        /** 生成 Win 端的身份验证信息, 可让 App 端验证 */
+        /** 通过 IP 地址进行配对 */
+        private static async Task PairByIpAddressAsync(WebSocket webSocket)
+        {
+            var buffer = new byte[1024];
+            try
+            {
+                var verifyInfo = GeneratePairVerifyInfo();
+                await SendWebSocketMessage(webSocket, verifyInfo);
+
+                while (webSocket.State == WebSocketState.Open)
+                {
+                    var message = await ReceiveWebSocketMessage(webSocket, buffer);
+                    if (message == null) continue;
+
+                    var pairRequest = await ShowPairRequestAsync(message);
+                    if (pairRequest)
+                    {
+                        var pairInfo = GenerateFullPairInfo();
+                        await SendWebSocketMessage(webSocket, pairInfo);
+                    }
+
+                    var responseMessage = $"{ConfirmedField}.配对结束";
+                    await SendWebSocketMessage(webSocket, responseMessage);
+                    Console.WriteLine("已发送确认消息");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"WebSocket 异常: {ex}");
+                Log.Error($"WebSocket 异常: {ex.Message}");
+            }
+            finally
+            {
+                await CloseWebSocket(webSocket);
+            }
+        }
+
+        private static async Task<string> ReceiveWebSocketMessage(WebSocket webSocket,
+            byte[] buffer)
+        {
+            var result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
+
+            if (result.MessageType == WebSocketMessageType.Close)
+            {
+                Log.Info("App 端主动关闭了 WebSocket 连接");
+                await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing", CancellationToken.None);
+                return null;
+            }
+
+            if (result.MessageType != WebSocketMessageType.Text)
+            {
+                Console.WriteLine("收到了不符合规范的 WebSocket 报文");
+                Log.Warn("收到了不符合规范的 WebSocket 报文");
+                return null;
+            }
+
+            var message = Encoding.UTF8.GetString(buffer, 0, result.Count);
+
+            if (string.IsNullOrWhiteSpace(message))
+            {
+                Log.Warn("收到 App 端的 WebSocket 空消息");
+                Console.WriteLine("收到空消息，忽略处理");
+                return null;
+            }
+
+            message = KeyHandler.DecryptString(message);
+            Console.WriteLine($"{DateTime.Now} 已收到来自 App 端的消息:{message}");
+            Log.Info($"已收到来自 App 端的消息:{message}");
+
+            return message;
+        }
+
+        private static async Task SendWebSocketMessage<T>(WebSocket webSocket, T message)
+        {
+            byte[] messageBytes;
+
+            if (message is byte[] byteArray)
+            {
+                messageBytes = byteArray;
+            }
+            else if (message is string str)
+            {
+                messageBytes = Encoding.UTF8.GetBytes(str);
+            }
+            else
+            {
+                throw new ArgumentException("无法发送不支持的 WebSocket 消息格式");
+            }
+
+            await webSocket.SendAsync(new ArraySegment<byte>(messageBytes), WebSocketMessageType.Text, true,
+                CancellationToken.None);
+        }
+
+        private static async Task CloseWebSocket(WebSocket webSocket)
+        {
+            if (webSocket.State != WebSocketState.Closed && webSocket.State != WebSocketState.Aborted)
+            {
+                Console.WriteLine($"WebSocket 当前状态: {webSocket.State}. 即将关闭连接...");
+                Log.Info($"WebSocket 当前状态: {webSocket.State}. 即将关闭连接...");
+
+                await webSocket.CloseAsync(WebSocketCloseStatus.InternalServerError,
+                    "WebSocket 连接异常中断", CancellationToken.None);
+
+                Console.WriteLine($"WebSocket 关闭状态: {webSocket.CloseStatus}, 描述: {webSocket.CloseStatusDescription}");
+                Log.Info($"WebSocket 关闭状态: {webSocket.CloseStatus}, 描述: {webSocket.CloseStatusDescription}");
+            }
+
+            webSocket.Dispose();
+            Console.WriteLine("WebSocket 连接已关闭");
+            Log.Info("WebSocket 连接已关闭");
+        }
+
+        /** App 进行短信转发时, Win 端需要提供的认证信息 */
         private static byte[] GenerateWebsocketVerifyInfo()
         {
             // 获取设备 ID 并加密
@@ -285,6 +370,81 @@ namespace OTPAutoForward.ServiceHandler
             var signature = KeyHandler.SignData(deviceId);
 
             return Encoding.UTF8.GetBytes(ValidationField + "." + encryptedText + "." + signature);
+        }
+
+        /** 通过 IP 地址进行配对时, Win 端需要提供的认证信息 */
+        private static byte[] GeneratePairVerifyInfo()
+        {
+            var serverTimestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            var plainText = $"{PairingField}+{serverTimestamp}";
+            var encryptedText = KeyHandler.EncryptString(plainText);
+            return Encoding.UTF8.GetBytes(PairingField + "." + encryptedText);
+        }
+
+        /** 通过 IP 地址进行配对时, Win 端提供的完整身份信息 */
+        private static byte[] GenerateFullPairInfo()
+        {
+            // 创建配对信息
+            var pairingInfo = new
+            {
+                deviceName = Environment.MachineName,
+                deviceId = ConnectInfoHandler.GetDeviceID(),
+                deviceType = ConnectInfoHandler.GetDeviceType(),
+                windowsPublicKey = KeyHandler.WindowsPublicKey // Win 端的公钥
+            };
+            var pairingInfoJson = JsonSerializer.Serialize(pairingInfo);
+
+            // 加密配对信息
+            var encryptedText = KeyHandler.EncryptString(pairingInfoJson);
+            var signature = KeyHandler.SignData(pairingInfoJson);
+            return Encoding.UTF8.GetBytes(PairInfoField + "." + encryptedText + "." + signature);
+        }
+
+        private static async Task<bool> ShowPairRequestAsync(string message)
+        {
+            var tcs = new TaskCompletionSource<bool>();
+
+            Application.Current.Dispatcher.Invoke(() =>
+            {
+                ToastNotificationManagerCompat.History.Clear();
+
+                var toastBuilder = new ToastContentBuilder()
+                    .AddText("您有一条来自 App 端的消息")
+                    .AddText(message)
+                    .SetToastDuration(ToastDuration.Long)
+                    .AddButton(new ToastButton()
+                        .SetContent("同意配对")
+                        .AddArgument("action", "pair")
+                        .AddArgument("source", "WebSocketHandler")
+                        .SetBackgroundActivation())
+                    .AddButton(new ToastButton()
+                        .SetContent("拒绝")
+                        .AddArgument("action", "cancelPair")
+                        .AddArgument("source", "WebSocketHandler")
+                        .SetBackgroundActivation());
+
+                ToastNotificationManagerCompat.OnActivated += (toastArgs) =>
+                {
+                    var args = ToastArguments.Parse(toastArgs.Argument);
+
+                    if (args.TryGetValue("action", out var action) && action == "pair")
+                    {
+                        tcs.TrySetResult(true);
+                        return;
+                    }
+
+                    tcs.TrySetResult(false);
+                };
+
+                toastBuilder.Show();
+
+                _ = Task.Delay(TimeSpan.FromSeconds(25)).ContinueWith(_ =>
+                {
+                    tcs.TrySetResult(false); // 超时未操作
+                });
+            });
+
+            return await tcs.Task;
         }
 
         public async Task StopWebSocketServer()
@@ -307,7 +467,7 @@ namespace OTPAutoForward.ServiceHandler
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"停止 WebSocket 服务器时发生错误: {ex.Message}");
+                Console.WriteLine($"停止 WebSocket 服务器时发生错误: {ex}");
                 Log.Error($"停止 WebSocket 服务器时发生错误: {ex.Message}");
             }
             finally
