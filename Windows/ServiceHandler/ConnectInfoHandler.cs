@@ -5,6 +5,7 @@ using System.Management;
 using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
+using System.Text.Json;
 using log4net;
 
 namespace OTPAutoForward.ServiceHandler
@@ -12,6 +13,25 @@ namespace OTPAutoForward.ServiceHandler
     public static class ConnectInfoHandler
     {
         private static readonly ILog Log = LogManager.GetLogger(typeof(ConnectInfoHandler));
+
+        /// <summary>
+        /// 获取 Win 端的完整配对信息
+        /// </summary>
+        /// <returns>元组: 加密后的配对信息, 签名</returns>
+        public static (string, string) GetPairInfo()
+        {
+            var pairingInfo = new
+            {
+                deviceName = Environment.MachineName,
+                deviceId = GetDeviceID(),
+                deviceType = GetDeviceType(),
+                windowsPublicKey = KeyHandler.WindowsPublicKey // Win 端的公钥
+            };
+            var pairingInfoJson = JsonSerializer.Serialize(pairingInfo);
+            var encryptedText = KeyHandler.EncryptString(pairingInfoJson);
+            var signature = KeyHandler.SignData(pairingInfoJson);
+            return (encryptedText, signature);
+        }
 
         /** 获取本机 IP 地址 */
         public static IPAddress GetLocalIP()

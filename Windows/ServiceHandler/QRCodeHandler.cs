@@ -1,6 +1,5 @@
 ﻿using System;
 using System.IO;
-using System.Text.Json;
 using Microsoft.Toolkit.Uwp.Notifications;
 using ZXing;
 using ZXing.Common;
@@ -15,27 +14,6 @@ namespace OTPAutoForward.ServiceHandler
     {
         private static string _qrCodePath;
 
-        /** 生成加密后的二维码内容 */
-        private static string GenerateEncryptedQRCode()
-        {
-            // 创建配对信息
-            var pairingInfo = new
-            {
-                deviceName = Environment.MachineName,
-                deviceId = ConnectInfoHandler.GetDeviceID(),
-                deviceType = ConnectInfoHandler.GetDeviceType(),
-                windowsPublicKey = KeyHandler.WindowsPublicKey // Win 端的公钥
-            };
-            var pairingInfoJson = JsonSerializer.Serialize(pairingInfo);
-
-            // 加密配对信息
-            var encryptedPairingInfo = KeyHandler.EncryptString(pairingInfoJson);
-            var signature = KeyHandler.SignData(pairingInfoJson);
-            var qrContent = $"{encryptedPairingInfo}.{signature}"; // 合并加密内容和签名
-
-            return qrContent;
-        }
-
         /// <summary>
         /// 生成二维码图像
         /// </summary>
@@ -47,7 +25,7 @@ namespace OTPAutoForward.ServiceHandler
         {
             var writer = new BarcodeWriter
             {
-                Format = BarcodeFormat.QR_CODE, 
+                Format = BarcodeFormat.QR_CODE,
                 Options = new EncodingOptions
                 {
                     Width = width,
@@ -68,7 +46,9 @@ namespace OTPAutoForward.ServiceHandler
         /** 在 Toast 弹窗中显示配对二维码 */
         public static void ShowQRCode()
         {
-            var qrData = GenerateEncryptedQRCode();
+            var (pairInfo, signature) = ConnectInfoHandler.GetPairInfo();
+            var qrData = pairInfo + "." + signature;
+
             _qrCodePath = GenerateQrCodeImage(qrData, 1024, 1024);
             new ToastContentBuilder()
                 .AddText("请用 App 端扫描该二维码以进行配对")

@@ -384,20 +384,8 @@ namespace OTPAutoForward.ServiceHandler
         /** 通过 IP 地址进行配对时, Win 端提供的完整身份信息 */
         private static byte[] GenerateFullPairInfo()
         {
-            // 创建配对信息
-            var pairingInfo = new
-            {
-                deviceName = Environment.MachineName,
-                deviceId = ConnectInfoHandler.GetDeviceID(),
-                deviceType = ConnectInfoHandler.GetDeviceType(),
-                windowsPublicKey = KeyHandler.WindowsPublicKey // Win 端的公钥
-            };
-            var pairingInfoJson = JsonSerializer.Serialize(pairingInfo);
-
-            // 加密配对信息
-            var encryptedText = KeyHandler.EncryptString(pairingInfoJson);
-            var signature = KeyHandler.SignData(pairingInfoJson);
-            return Encoding.UTF8.GetBytes(PairInfoField + "." + encryptedText + "." + signature);
+            var (pairInfo, signature) = ConnectInfoHandler.GetPairInfo();
+            return Encoding.UTF8.GetBytes(PairInfoField + "." + pairInfo + "." + signature);
         }
 
         private static async Task<bool> ShowPairRequestAsync(string message)
