@@ -226,14 +226,14 @@ namespace OTPAutoForward.ServiceHandler
                         toastBuilder.AddButton(new ToastButton()
                                 .SetContent(buttonText) // 按钮显示的内容
                                 .AddArgument("action", "copy")
-                                .AddArgument("message", value)) // 点击按钮时传递的内容
+                                .AddArgument("content", value)) // 点击按钮时传递的内容
                             .AddArgument("source", "WebSocketMessage"); // 给 Toast 弹窗添加来源标识
                     }
                 }
 
                 // 点击 Toast 弹窗本身可以复制整条短信的内容
                 toastBuilder.AddArgument("action", "copy")
-                    .AddArgument("message", message)
+                    .AddArgument("content", message)
                     .AddArgument("source", "WebSocketMessage"); // 给 Toast 弹窗添加来源标识
 
                 toastBuilder.Show();
@@ -314,12 +314,12 @@ namespace OTPAutoForward.ServiceHandler
                 var arguments = ToastArguments.Parse(toastArgs.Argument);
 
                 // 点击事件只针对特定标识的 Toast 弹窗生效
-                if (!arguments.Contains("source") || arguments["source"] != "WebSocketMessage")
+                if (!arguments.Contains("source"))
                     return;
 
                 if (arguments["action"] != "copy") return;
 
-                var textToCopy = arguments["message"];
+                var textToCopy = arguments["content"];
                 CopyToClipboard(textToCopy);
             });
         }
@@ -364,11 +364,15 @@ namespace OTPAutoForward.ServiceHandler
         private static void ShowIPNotification()
         {
             var ip = ConnectInfoHandler.GetLocalIP();
-            new ToastContentBuilder()
-                .AddText($"您的 IP 地址是: {ip}")
-                .AddText("请在 App 端输入您的 IP 地址")
+            var toastBuilder = new ToastContentBuilder();
+            toastBuilder
+                .AddText($"请在 App 输入 IP 地址: {ip}")
+                .AddText("点击弹窗可复制 IP 地址")
                 .SetToastDuration(ToastDuration.Long) // 设置为长时间显示(大概 30 秒)
-                .Show();
+                .AddArgument("action", "copy")
+                .AddArgument("content", ip.ToString())
+                .AddArgument("source", "PairByIP");
+            toastBuilder.Show();
         }
 
         /** 释放托盘图标资源 */
