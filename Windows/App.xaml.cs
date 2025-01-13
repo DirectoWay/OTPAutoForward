@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Net.NetworkInformation;
 using System.Security.Principal;
+using System.Threading.Tasks;
 using System.Windows;
 using Autofac;
 using log4net;
@@ -95,7 +96,7 @@ namespace OTPAutoForward
 
                     _notifyIconHandler.Dispose();
                     Shutdown();
-                });
+                }, TaskScheduler.FromCurrentSynchronizationContext());
             }
         }
 
