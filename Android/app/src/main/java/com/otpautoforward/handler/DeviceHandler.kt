@@ -4,11 +4,15 @@ import android.content.Context
 import android.content.Intent
 import android.view.LayoutInflater
 import android.widget.LinearLayout
+import androidx.databinding.DataBindingUtil
+import androidx.fragment.app.FragmentActivity
+import androidx.lifecycle.ViewModelProvider
 import com.otpautoforward.activity.PairedDeviceSettingsActivity
 import com.otpautoforward.dataclass.DisplayDeviceInfo
 import com.otpautoforward.R
 import com.otpautoforward.databinding.FragmentPairDeviceinfoBinding
 import com.otpautoforward.fragment.MainFragment
+import com.otpautoforward.viewmodel.SettingsViewModel
 
 /** 动态的给配对页面的 RecyclerView 中生成元素, 用以动态生成已经配对的设备信息 */
 class DeviceHandler(private val container: LinearLayout) {
@@ -60,16 +64,19 @@ class DeviceHandler(private val container: LinearLayout) {
     }
 
     /** 动态绑定设备信息与图标 */
-    fun bindDeviceInfo(devices: List<DisplayDeviceInfo>, fragment: MainFragment) {
+    fun bindDeviceInfo(activity: FragmentActivity, devices: List<DisplayDeviceInfo>, fragment: MainFragment) {
         container.removeAllViews() // 清空之前的视图
         for (device in devices) {
-            val binding = FragmentPairDeviceinfoBinding.inflate(
-                LayoutInflater.from(container.context), container, false
+            val binding: FragmentPairDeviceinfoBinding = DataBindingUtil.inflate(
+                LayoutInflater.from(container.context),
+                R.layout.fragment_pair_deviceinfo,
+                container,
+                false
             )
-
-            binding.iconPairedDeviceType.setImageResource(device.typeIcon)
-            binding.iconPairedSetting.setImageResource(device.settingIcon)
-            binding.textPairedDeviceName.text = device.deviceName
+            binding.device = device
+            val settingsViewModel = ViewModelProvider(activity)[SettingsViewModel::class.java]
+            binding.settingsViewModel = settingsViewModel
+            binding.lifecycleOwner = activity
 
             // 给已配对的设备绑定点击事件
             binding.viewPairedDeviceContainer.setOnClickListener {

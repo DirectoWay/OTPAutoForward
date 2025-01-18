@@ -10,6 +10,14 @@
     <color name="white">#FFFFFFFF</color>
     <color name="colorAccent">#03DAC5</color>
     <color name="dark_gray">#323232</color>
-    <color name="element_switch_off">#dcdfe6</color>
-    <color name="element_switch_thumb">#F44336</color>
+    <color name="switch_thumb_off">#ececec</color>
+    <color name="switch_track_off">#AAB2B2B2</color>
+
+    <color name="default_ui_color">#FF0F826E</color>
+    <string name="default_ui_color">#FF0F826E</string>
+    <color name="default_sub_color">#550F826E</color>
+    <string name="default_sub_color">#550F826E</string>
+
+    <color name="negative_color">#FF808080</color>
+    <string name="negative_color">#FF808080</string>
 </resources>

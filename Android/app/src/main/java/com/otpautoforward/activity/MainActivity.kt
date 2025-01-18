@@ -22,9 +22,11 @@ import android.text.Html
 import android.util.Log
 import android.view.Menu
 import android.view.MenuItem
+import android.view.View
 import android.view.animation.AnticipateOvershootInterpolator
 import android.view.animation.DecelerateInterpolator
 import android.widget.ImageView
+import android.widget.TextView
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
@@ -34,17 +36,25 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.ContextCompat.getSystemService
 import androidx.core.graphics.drawable.DrawableCompat
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.snackbar.Snackbar
 import com.kongzue.dialogx.DialogX
 import com.kongzue.dialogx.dialogs.MessageDialog
 import com.kongzue.dialogx.dialogs.WaitDialog
+import com.kongzue.dialogx.interfaces.OnBindView
 import com.kongzue.dialogx.util.TextInfo
 import com.kongzue.dialogxmaterialyou.style.MaterialYouStyle
 import com.otpautoforward.R
 import com.otpautoforward.databinding.ActivityMainBinding
 import com.otpautoforward.handler.JsonHandler
 import com.otpautoforward.handler.UpdateHandler
+import com.otpautoforward.viewmodel.SettingsViewModel
+import com.skydoves.colorpickerview.ColorEnvelope
+import com.skydoves.colorpickerview.ColorPickerView
+import com.skydoves.colorpickerview.listeners.ColorEnvelopeListener
+import com.skydoves.colorpickerview.sliders.AlphaSlideBar
+import com.skydoves.colorpickerview.sliders.BrightnessSlideBar
 import kotlinx.coroutines.launch
 
 
@@ -72,6 +82,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var toolbar: Toolbar
     private val jsonHandler = JsonHandler(this)
     private val updateHandler = UpdateHandler()
+    private lateinit var settingsViewModel: SettingsViewModel
 
     /** 导航栏的动画是否已经播放完毕 */
     private var isAnimating = false
@@ -85,7 +96,14 @@ class MainActivity : AppCompatActivity() {
 
         toolbar = binding.appBarMain.toolbar
 
+        settingsViewModel = ViewModelProvider(this@MainActivity)[SettingsViewModel::class.java]
+        binding.settingsViewModel = settingsViewModel
+        binding.lifecycleOwner = this@MainActivity
+
         configDialogX()
+        settingsViewModel.uiColor.observe(this@MainActivity) { newColor ->
+            DialogX.okButtonTextInfo.fontColor = newColor
+        }
 
         // 设置左上角导航图标的偏移位置
         toolbar.post {
@@ -155,6 +173,11 @@ class MainActivity : AppCompatActivity() {
 
             R.id.action_update -> {
                 lifecycleScope.launch { updateHandler.checkUpdatesAsync(this@MainActivity) }
+                true
+            }
+
+            R.id.action_changeUIColor -> {
+                showColorPicker()
                 true
             }
 
@@ -335,18 +358,18 @@ class MainActivity : AppCompatActivity() {
         )
 
         // 颜色渐变
-        val colorAnimatorToGreen = ValueAnimator.ofArgb(Color.BLACK, Color.parseColor("#0F826E"))
-        colorAnimatorToGreen.addUpdateListener { animator ->
+        val changeColor = ValueAnimator.ofArgb(Color.BLACK, settingsViewModel.getUIColor())
+        changeColor.addUpdateListener { animator ->
             DrawableCompat.setTint(navIconView.drawable, animator.animatedValue as Int)
         }
-        colorAnimatorToGreen.duration = 500 // 颜色渐变时间
+        changeColor.duration = 500 // 颜色渐变时间
 
-        val colorAnimatorToBlack = ValueAnimator.ofArgb(Color.parseColor("#0F826E"), Color.BLACK)
-        colorAnimatorToBlack.addUpdateListener { animator ->
+        val restoreColor = ValueAnimator.ofArgb(settingsViewModel.getUIColor(), Color.BLACK)
+        restoreColor.addUpdateListener { animator ->
             DrawableCompat.setTint(navIconView.drawable, animator.animatedValue as Int)
         }
 
-        colorAnimatorToBlack.duration = 1000 // 颜色复原时间
+        restoreColor.duration = 1000 // 颜色复原时间
 
         // 图标从左向右移动
         val heavyVibrationPattern = longArrayOf(0, 200) // 长震动效果
@@ -370,9 +393,9 @@ class MainActivity : AppCompatActivity() {
         val animatorSet = AnimatorSet()
         animatorSet.playSequentially(AnimatorSet().apply {
             playTogether(
-                colorAnimatorToGreen, shakeAnimatorSet
+                changeColor, shakeAnimatorSet
             )
-        }, moveToRight, resetPosition, colorAnimatorToBlack)
+        }, moveToRight, resetPosition, restoreColor)
 
         animatorSet.addListener(object : AnimatorListenerAdapter() {
             override fun onAnimationEnd(animation: Animator) {
@@ -390,6 +413,89 @@ class MainActivity : AppCompatActivity() {
         sendOrderedBroadcast(intent, null)
     }
 
+    private fun showColorPicker() {
+        var hexUIColor = ""
+        var hexSubColor = ""
+        val colorPickerDialog = MessageDialog.build()
+        colorPickerDialog
+            .setCustomView(object : OnBindView<MessageDialog?>(R.layout.app_color_picker) {
+                override fun onBind(dialog: MessageDialog?, v: View) {
+                    val colorPickerView = v.findViewById<ColorPickerView>(R.id.colorPickerView)
+                    val brightnessSlideBar = v.findViewById<BrightnessSlideBar>(R.id.brightnessSlideBar)
+                    val alphaSlideBar = v.findViewById<AlphaSlideBar>(R.id.alphaSlideBar)
+                    val selectedColorView = v.findViewById<View>(R.id.selectedColorView)
+                    val hexValueTextView = v.findViewById<TextView>(com.otpautoforward.R.id.hexValueTextView)
+
+                    // 绑定滑块
+                    colorPickerView.attachBrightnessSlider(brightnessSlideBar)
+                    colorPickerView.attachAlphaSlider(alphaSlideBar)
+
+                    // 颜色监听器
+                    colorPickerView.setColorListener(ColorEnvelopeListener { envelope: ColorEnvelope, _: Boolean ->
+                        val selectedColor = envelope.color
+                        hexUIColor = "#" + envelope.hexCode
+                        hexSubColor = generateSubColor(hexUIColor)
+                        hexValueTextView.text = hexUIColor
+                        selectedColorView.setBackgroundColor(selectedColor)
+                    })
+                }
+            })
+            .setTitle("自定义主题色")
+            .setMessage("请在下方取色板中选择您喜好的主题色")
+            .setOkButton("确定") { _, _ ->
+                settingsViewModel.updateUIColor(Color.parseColor(hexUIColor))
+                settingsViewModel.updateSubColor(Color.parseColor(hexSubColor))
+                false
+            }
+            .setCancelButton("取消")
+            .setOtherButton("恢复默认主题色") { dialog, _ ->
+                showRestoreColorDialog(dialog)
+                true
+            }
+            .setCancelable(false)
+            .show()
+    }
+
+    private fun showRestoreColorDialog(dialog: MessageDialog) {
+        val restoreColorDialog = MessageDialog.build()
+        restoreColorDialog
+            .setTitle("恢复默认主题色?")
+            .setMessage("将恢复默认的主题色")
+            .setOkButton("确定") { _, _ ->
+                restoreColor()
+                dialog.dismiss() // 关掉上一层弹窗
+                false
+            }
+            .setCancelButton("取消")
+            .show()
+    }
+
+    private fun restoreColor() {
+        val defaultUIColor = ContextCompat.getColor(application, R.color.default_ui_color)
+        settingsViewModel.updateUIColor(defaultUIColor)
+
+        val defaultSubColor = generateSubColor(application.getString(R.string.default_ui_color))
+        settingsViewModel.updateSubColor(Color.parseColor(defaultSubColor))
+    }
+
+    private fun generateSubColor(hexUIColor: String): String {
+        // 检查输入格式是否符合 #AARRGGBB
+        if (!hexUIColor.matches(Regex("#[A-Fa-f0-9]{8}"))) {
+            throw IllegalArgumentException("不符合规范的颜色值")
+        }
+
+        // 提取 ARGB 通道值
+        val alpha = hexUIColor.substring(1, 3).toInt(16)
+        val red = hexUIColor.substring(3, 5).toInt(16)
+        val green = hexUIColor.substring(5, 7).toInt(16)
+        val blue = hexUIColor.substring(7, 9).toInt(16)
+
+        // 减少 alpha 通道的值
+        val subAlpha = (alpha / 3).coerceIn(0, 255)
+
+        return "#%02X%02X%02X%02X".format(subAlpha, red, green, blue)
+    }
+
     /** 全局的 DialogX 配置 */
     private fun configDialogX() {
         DialogX.init(this)
@@ -399,7 +505,7 @@ class MainActivity : AppCompatActivity() {
 
         // "确认" 按钮的样式
         val okTextInfo = TextInfo()
-        okTextInfo.fontColor = Color.parseColor("#0F826E")
+        okTextInfo.fontColor = settingsViewModel.getUIColor()
         okTextInfo.isBold = true
         okTextInfo.fontSize = 17
         DialogX.okButtonTextInfo = okTextInfo

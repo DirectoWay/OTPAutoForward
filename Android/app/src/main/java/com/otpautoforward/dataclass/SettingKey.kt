@@ -18,5 +18,11 @@ enum class SettingKey(val key: String) {
     ForwardOnlyOTP("forwardOnlyOTP"),
 
     /** 已配对的设备 */
-    PairedDevices("PairedDevices")
+    PairedDevices("PairedDevices"),
+
+    /** 当前的 UI 配色 */
+    UIColor("UIColor"),
+
+    /** 当前的副系配色 */
+    SubColor("SubColor")
 }

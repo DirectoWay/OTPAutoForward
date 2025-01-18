@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     id("kotlin-parcelize")
+    id("kotlin-kapt")
 }
 
 android {
@@ -16,6 +17,10 @@ android {
         versionName = "0.5.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    buildFeatures {
+        dataBinding = true
     }
 
     buildTypes {
@@ -64,6 +69,7 @@ android {
         implementation(libs.dialogx)
         implementation(libs.dialogx.style)
         implementation(libs.eventbus)
+        implementation(libs.colorpickerview)
         testImplementation(libs.junit.junit)
         androidTestImplementation(libs.androidx.junit)
         androidTestImplementation(libs.androidx.espresso.core)

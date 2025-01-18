@@ -1,5 +1,6 @@
 [versions]
 agp = "8.6.0"
+colorpickerview = "2.3.0"
 coreVersion = "3.4.1"
 dialogx = "0.0.50.beta30"
 eventbus = "3.3.1"
@@ -24,6 +25,7 @@ junitJunit = "4.12"
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 androidx-localbroadcastmanager = { module = "androidx.localbroadcastmanager:localbroadcastmanager", version.ref = "localbroadcastmanager" }
+colorpickerview = { module = "com.github.skydoves:colorpickerview", version.ref = "colorpickerview" }
 core-v341 = { module = "com.google.zxing:core", version.ref = "coreVersion" }
 dialogx = { module = "com.github.kongzue.DialogX:DialogX", version.ref = "dialogx" }
 dialogx-style ={ module = "com.github.kongzue.DialogX:DialogXMaterialYou", version.ref = "dialogx"}

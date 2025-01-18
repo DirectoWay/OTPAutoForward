@@ -37,7 +37,7 @@ class PairedDeviceSettingsActivity : AppCompatActivity() {
         binding.viewPairedCancel.setOnClickListener {
             deviceId?.let {
                 removeDeviceInfo(it)
-                settingsViewModel.refreshPairedDevice.postValue(Unit) // 事件驱动, 刷新已配对的设备信息
+                settingsViewModel.refreshPairedDevice.postValue(Unit) // 刷新已配对的设备信息
                 Handler(Looper.getMainLooper()).postDelayed({ finish() }, 100)
             }
         }

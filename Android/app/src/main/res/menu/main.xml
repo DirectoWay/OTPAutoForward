@@ -29,4 +29,11 @@
         android:title="检查更新"
         app:showAsAction="never"
         tools:ignore="HardcodedText" />
+
+    <item
+        android:id="@+id/action_changeUIColor"
+        android:orderInCategory="100"
+        android:title="更改主题色"
+        app:showAsAction="never"
+        tools:ignore="HardcodedText" />
 </menu>

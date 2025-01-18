@@ -4,9 +4,7 @@ import android.Manifest
 import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.animation.AnimatorSet
-import android.animation.ArgbEvaluator
 import android.animation.ObjectAnimator
-import android.animation.ValueAnimator
 import android.app.Activity
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -33,7 +31,6 @@ import android.widget.ImageView
 import android.widget.Toast
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.cardview.widget.CardView
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
@@ -63,11 +60,8 @@ private const val tagF = "OTPAutoForward"
 class MainFragment : Fragment() {
     private lateinit var settingsViewModel: SettingsViewModel
 
-    private var _binding: FragmentMainBinding? = null
-    private val binding get() = _binding!!
-
-    private var _pairDeviceBinding: FragmentPairDeviceinfoBinding? = null
-    private val pairDeviceBinding get() = _pairDeviceBinding!!
+    private lateinit var binding: FragmentMainBinding
+    private lateinit var pairDeviceBinding: FragmentPairDeviceinfoBinding
 
     private val globalHandler = GlobalHandler()
     private val pairHandler = PairHandler()
@@ -78,6 +72,8 @@ class MainFragment : Fragment() {
     private lateinit var rotateAnimation: Animation
     private lateinit var deviceName: String
 
+    private val lastSwitchStates = mutableMapOf<String, Boolean>()
+
     override fun onStart() {
         super.onStart()
         EventBus.getDefault().register(this)
@@ -86,8 +82,19 @@ class MainFragment : Fragment() {
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
     ): View {
-        _binding = FragmentMainBinding.inflate(inflater, container, false)
-        _pairDeviceBinding = FragmentPairDeviceinfoBinding.inflate(inflater, container, false)
+        binding = FragmentMainBinding.inflate(inflater, container, false)
+        pairDeviceBinding = FragmentPairDeviceinfoBinding.inflate(inflater, container, false)
+
+        settingsViewModel = ViewModelProvider(requireActivity())[SettingsViewModel::class.java]
+        binding.settingsViewModel = settingsViewModel
+        binding.lifecycleOwner = viewLifecycleOwner
+
+        // 初始化静态 UI
+        if (settingsViewModel.settings.value?.get(SettingKey.SmsEnabled.key) == true) {
+            setExpandedState()
+        } else {
+            setCollapsedState()
+        }
 
         // 注册二维码启动器, 有权限的情况下直接启动扫码
         qrCodeLauncher =
@@ -157,21 +164,44 @@ class MainFragment : Fragment() {
         binding.deviceIPAddress.text = deviceIPAddress
 
         // 观察页面上开关的变化
-        settingsViewModel = ViewModelProvider(requireActivity())[SettingsViewModel::class.java]
-
         settingsViewModel.settings.observe(viewLifecycleOwner) { settings ->
             binding.switchSms.isChecked = settings[SettingKey.SmsEnabled.key] ?: true
             binding.switchForwardScreenoff.isChecked = settings[SettingKey.ScreenLocked.key] ?: true
-            binding.switchSyncDoNotDisturb.isChecked =
-                settings[SettingKey.SyncDoNotDistribute.key] ?: true
+            binding.switchSyncDoNotDisturb.isChecked = settings[SettingKey.SyncDoNotDistribute.key] ?: true
             binding.switchForwardOnlyOTP.isChecked = settings[SettingKey.ForwardOnlyOTP.key] ?: true
+        }
+
+        // 观察 UI 颜色的变化
+        settingsViewModel.uiColor.observe(viewLifecycleOwner) {
+            settingsViewModel.loadIconColor()
+        }
+
+        settingsViewModel.iconColor.observe(viewLifecycleOwner) { iconInfo ->
+            // 如果 lastSwitchStates 为空，则初始化所有 key 的状态
+            if (lastSwitchStates.isEmpty()) {
+                iconInfo.keys.forEach { key ->
+                    lastSwitchStates[key] = settingsViewModel.settings.value?.get(key) == true
+                }
+            }
+
+            iconInfo.forEach { (key, iconColor) ->
+                val currentState = settingsViewModel.settings.value?.get(key) == true
+                val lastState = lastSwitchStates[key]
+
+                // 只有 switch 被拨动时才播放动画
+                if (currentState != lastState) {
+                    startIconAnimation(key, currentState, iconColor)
+                    lastSwitchStates[key] = currentState
+                }
+
+                // 更新图标颜色
+                updateIconColor(key, currentState, iconColor)
+            }
         }
 
         settingsViewModel.refreshPairedDevice.observe(viewLifecycleOwner) {
             refreshPairedDevice()
         }
-
-        initializeSwitchState()
 
         switchListener()
 
@@ -272,7 +302,7 @@ class MainFragment : Fragment() {
 
         val inputInfo = InputInfo()
         inputInfo.textInfo = textInfo
-        inputInfo.cursorColor = Color.parseColor("#0F826E")
+        inputInfo.cursorColor = settingsViewModel.getUIColor()
         inputInfo.bottomLineColor = Color.BLACK
         inputInfo.maX_LENGTH = 15
         inputInfo.inputType = InputType.TYPE_CLASS_PHONE
@@ -338,81 +368,26 @@ class MainFragment : Fragment() {
         } else {
             binding.textPairedDevice.visibility = View.VISIBLE
             binding.viewPairedDeviceInfo.visibility = View.VISIBLE
-            deviceHandler.bindDeviceInfo(deviceList, this)
+            deviceHandler.bindDeviceInfo(requireActivity(), deviceList, this)
         }
     }
 
     /** 开关监听器, 页面上的开关发生变动时执行对应的逻辑 */
     private fun switchListener() {
+        val vibrator = ContextCompat.getSystemService(binding.root.context, Vibrator::class.java)
+
         binding.switchSms.setOnCheckedChangeListener { _, isChecked ->
             settingsViewModel.updateSetting(SettingKey.SmsEnabled.key, isChecked)
-
-            // 短震动效果
-            val vibrator =
-                ContextCompat.getSystemService(binding.root.context, Vibrator::class.java)
             vibrator?.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 30), -1))
-
-            if (isChecked) {
-                expandAnimation()
-                animateIconChange(
-                    binding.iconSms,
-                    R.drawable.baseline_forward_to_inbox_24,
-                    Color.parseColor("#0F826E")
-                )
-            } else {
-                collapseAnimation()
-                animateIconChange(
-                    binding.iconSms, R.drawable.outline_mail_lock_24, Color.parseColor("#808080")
-                )
-            }
         }
         binding.switchForwardScreenoff.setOnCheckedChangeListener { _, isChecked ->
             settingsViewModel.updateSetting(SettingKey.ScreenLocked.key, isChecked)
-            if (isChecked) {
-                animateIconChange(
-                    binding.iconForwardScreenoff,
-                    R.drawable.baseline_screen_lock_portrait_24,
-                    Color.parseColor("#0F826E")
-                )
-            } else {
-                animateIconChange(
-                    binding.iconForwardScreenoff,
-                    R.drawable.baseline_smartphone_24,
-                    Color.parseColor("#808080")
-                )
-            }
         }
         binding.switchSyncDoNotDisturb.setOnCheckedChangeListener { _, isChecked ->
             settingsViewModel.updateSetting(SettingKey.SyncDoNotDistribute.key, isChecked)
-            if (isChecked) {
-                animateIconChange(
-                    binding.iconSyncDoNotDisturb,
-                    R.drawable.outline_notifications_off_24,
-                    Color.parseColor("#0F826E")
-                )
-            } else {
-                animateIconChange(
-                    binding.iconSyncDoNotDisturb,
-                    R.drawable.outline_notifications_24,
-                    Color.parseColor("#808080")
-                )
-            }
         }
         binding.switchForwardOnlyOTP.setOnCheckedChangeListener { _, isChecked ->
             settingsViewModel.updateSetting(SettingKey.ForwardOnlyOTP.key, isChecked)
-            if (isChecked) {
-                animateIconChange(
-                    binding.iconForwardOnlyOTP,
-                    R.drawable.outline_verified_24,
-                    Color.parseColor("#0F826E")
-                )
-            } else {
-                animateIconChange(
-                    binding.iconForwardOnlyOTP,
-                    R.drawable.outline_sms_24,
-                    Color.parseColor("#808080")
-                )
-            }
         }
     }
 
@@ -443,70 +418,6 @@ class MainFragment : Fragment() {
         outAnimatorSet.start()
     }
 
-    /** 初始化页面上的静态 UI */
-    private fun initializeSwitchState() {
-        val switchMap = mapOf(
-            SettingKey.SmsEnabled.key to binding.switchSms,
-            SettingKey.ScreenLocked.key to binding.switchForwardScreenoff,
-            SettingKey.SyncDoNotDistribute.key to binding.switchSyncDoNotDisturb,
-            SettingKey.ForwardOnlyOTP.key to binding.switchForwardOnlyOTP
-        )
-        switchMap.forEach { (key, switch) -> // 获取开关当前的值并禁用监听器
-            val isEnabled = settingsViewModel.settings.value?.get(key) ?: true
-            switch.setOnCheckedChangeListener(null)
-            switch.isChecked = isEnabled
-            // 设置开关图标和状态
-            setInitialStatus(key, isEnabled)
-        }
-    }
-
-    /** 设置页面元素的初始化状态 */
-    private fun setInitialStatus(key: String, isEnabled: Boolean) {
-        when (key) {
-            SettingKey.SmsEnabled.key -> {
-                if (isEnabled) {
-                    setExpandedState()
-                    binding.iconSms.setImageResource(R.drawable.baseline_forward_to_inbox_24)
-                    binding.iconSms.setColorFilter(Color.parseColor("#0F826E"))
-                } else {
-                    setCollapsedState()
-                    binding.iconSms.setImageResource(R.drawable.outline_mail_lock_24)
-                    binding.iconSms.setColorFilter(Color.parseColor("#808080"))
-                }
-            }
-
-            SettingKey.ScreenLocked.key -> {
-                if (isEnabled) {
-                    binding.iconForwardScreenoff.setImageResource(R.drawable.baseline_screen_lock_portrait_24)
-                    binding.iconForwardScreenoff.setColorFilter(Color.parseColor("#0F826E"))
-                } else {
-                    binding.iconForwardScreenoff.setImageResource(R.drawable.baseline_smartphone_24)
-                    binding.iconForwardScreenoff.setColorFilter(Color.parseColor("#808080"))
-                }
-            }
-
-            SettingKey.SyncDoNotDistribute.key -> {
-                if (isEnabled) {
-                    binding.iconSyncDoNotDisturb.setImageResource(R.drawable.outline_notifications_off_24)
-                    binding.iconSyncDoNotDisturb.setColorFilter(Color.parseColor("#0F826E"))
-                } else {
-                    binding.iconSyncDoNotDisturb.setImageResource(R.drawable.outline_notifications_24)
-                    binding.iconSyncDoNotDisturb.setColorFilter(Color.parseColor("#808080"))
-                }
-            }
-
-            SettingKey.ForwardOnlyOTP.key -> {
-                if (isEnabled) {
-                    binding.iconForwardOnlyOTP.setImageResource(R.drawable.outline_verified_24)
-                    binding.iconForwardOnlyOTP.setColorFilter(Color.parseColor("#0F826E"))
-                } else {
-                    binding.iconForwardOnlyOTP.setImageResource(R.drawable.outline_sms_24)
-                    binding.iconForwardOnlyOTP.setColorFilter(Color.parseColor("#808080"))
-                }
-            }
-        }
-    }
-
     /** 展开状态的静态 UI */
     private fun setExpandedState() {
         binding.containerSwitchRetractable.visibility = View.VISIBLE
@@ -516,13 +427,6 @@ class MainFragment : Fragment() {
         binding.viewSwitchWarn.visibility = View.INVISIBLE
         binding.viewSwitchWarn.alpha = 0f
         binding.viewSwitchWarn.translationY = binding.viewSwitchWarn.height.toFloat()
-
-        changeSwitchColor(
-            binding.viewSmsSwitch,
-            ContextCompat.getColor(requireContext(), R.color.white),
-            Color.parseColor("#D7D7D7"),
-            0 // 直接无动画
-        )
     }
 
     /** 收起状态的静态 UI */
@@ -535,20 +439,13 @@ class MainFragment : Fragment() {
         binding.viewSwitchWarn.visibility = View.VISIBLE
         binding.viewSwitchWarn.alpha = 1f
         binding.viewSwitchWarn.translationY = 0f
-
-        changeSwitchColor(
-            binding.viewSmsSwitch,
-            Color.parseColor("#D7D7D7"),
-            ContextCompat.getColor(requireContext(), R.color.white),
-            0 // 直接无动画
-        )
     }
 
     /** 拨动 "短信转发" 开关时的展开动画 */
     private fun expandAnimation() {
         val retractableContainer = binding.containerSwitchRetractable
         val switchWarnView = binding.viewSwitchWarn
-        val switchSmsView = binding.viewSmsSwitch
+        binding.viewSmsSwitch
 
         // 隐藏提示内容
         switchWarnView.animate().alpha(0f).translationY(switchWarnView.height.toFloat())
@@ -563,20 +460,13 @@ class MainFragment : Fragment() {
         retractableContainer.alpha = 0f
         retractableContainer.translationY = retractableContainer.height.toFloat()
         retractableContainer.animate().alpha(1f).translationY(0f).setDuration(500).setListener(null)
-
-        changeSwitchColor(
-            switchSmsView,
-            ContextCompat.getColor(requireContext(), R.color.white),
-            Color.parseColor("#D7D7D7"),
-            300
-        )
     }
 
     /** 拨动 "短信转发" 开关时的收起动画 */
     private fun collapseAnimation() {
         val retractableContainer = binding.containerSwitchRetractable
         val switchWarnView = binding.viewSwitchWarn
-        val switchTotalView = binding.viewSmsSwitch
+        binding.viewSmsSwitch
 
         // 收起页面内容
         retractableContainer.animate().alpha(0f).translationY(retractableContainer.height.toFloat())
@@ -591,23 +481,55 @@ class MainFragment : Fragment() {
         switchWarnView.alpha = 0f
         switchWarnView.translationY = -switchWarnView.height.toFloat()
         switchWarnView.animate().alpha(1f).translationY(0f).setDuration(500).setListener(null)
-
-        changeSwitchColor(
-            switchTotalView,
-            Color.parseColor("#D7D7D7"),
-            ContextCompat.getColor(requireContext(), R.color.white),
-            600
-        )
     }
 
-    /** 更改 "短信转发" 开关的颜色 */
-    private fun changeSwitchColor(view: View, colorFrom: Int, colorTo: Int, duration: Long) {
-        val colorAnimation = ValueAnimator.ofObject(ArgbEvaluator(), colorFrom, colorTo)
-        colorAnimation.duration = duration
-        colorAnimation.addUpdateListener { animator ->
-            (view as? CardView)?.setCardBackgroundColor(animator.animatedValue as Int)
+    private fun startIconAnimation(key: String, currentState: Boolean, iconColor: Int) {
+        when (key) {
+            SettingKey.SmsEnabled.key -> {
+                if (currentState) expandAnimation() else collapseAnimation()
+                animateIconChange(
+                    binding.iconSms,
+                    if (currentState) R.drawable.baseline_forward_to_inbox_24 else R.drawable.outline_mail_lock_24,
+                    iconColor
+                )
+            }
+
+            SettingKey.ScreenLocked.key -> {
+                animateIconChange(
+                    binding.iconForwardScreenoff,
+                    if (currentState) R.drawable.baseline_screen_lock_portrait_24 else R.drawable.baseline_smartphone_24,
+                    iconColor
+                )
+            }
+
+            SettingKey.SyncDoNotDistribute.key -> {
+                animateIconChange(
+                    binding.iconSyncDoNotDisturb,
+                    if (currentState) R.drawable.outline_notifications_off_24 else R.drawable.outline_notifications_24,
+                    iconColor
+                )
+            }
+
+            SettingKey.ForwardOnlyOTP.key -> {
+                animateIconChange(
+                    binding.iconForwardOnlyOTP,
+                    if (currentState) R.drawable.outline_verified_24 else R.drawable.outline_sms_24,
+                    iconColor
+                )
+            }
+
+            else -> {}
         }
-        colorAnimation.start()
+    }
+
+    private fun updateIconColor(key: String, currentState: Boolean, iconColor: Int) {
+        val color = if (currentState) iconColor else Color.GRAY
+        when (key) {
+            SettingKey.SmsEnabled.key -> binding.iconSms.setColorFilter(color)
+            SettingKey.ScreenLocked.key -> binding.iconForwardScreenoff.setColorFilter(color)
+            SettingKey.SyncDoNotDistribute.key -> binding.iconSyncDoNotDisturb.setColorFilter(color)
+            SettingKey.ForwardOnlyOTP.key -> binding.iconForwardOnlyOTP.setColorFilter(color)
+        }
     }
 
     /** 开始扫描二维码 */
@@ -647,11 +569,6 @@ class MainFragment : Fragment() {
                 Intent(activity, CaptureQRCodeActivity::class.java)
             qrCodeLauncher.launch(intent)
         }, 200)
-    }
-
-    override fun onDestroyView() {
-        super.onDestroyView()
-        _binding = null
     }
 
     override fun onStop() {
