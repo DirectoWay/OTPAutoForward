@@ -20,6 +20,8 @@ import android.view.WindowInsets
 import android.view.WindowInsetsController
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.ViewModelProvider
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.DecodeHintType
 import com.google.zxing.ResultPoint
@@ -29,6 +31,7 @@ import com.journeyapps.barcodescanner.DecoratedBarcodeView
 import com.journeyapps.barcodescanner.DefaultDecoderFactory
 import com.journeyapps.barcodescanner.ViewfinderView
 import com.otpautoforward.R
+import com.otpautoforward.viewmodel.SettingsViewModel
 
 
 class CaptureQRCodeActivity : AppCompatActivity() {
@@ -70,12 +73,14 @@ class CaptureQRCodeActivity : AppCompatActivity() {
                 (View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or View.SYSTEM_UI_FLAG_LAYOUT_STABLE)
         }
 
-        barcodeView = findViewById(R.id.zxing_barcode_scanner)
+        val settingsViewModel = ViewModelProvider(this@CaptureQRCodeActivity)[SettingsViewModel::class.java]
+        CustomViewfinderView.settingsViewModel = settingsViewModel
         customViewfinderView = findViewById(R.id.custom_viewfinder)
-
-        (barcodeView.viewFinder as ViewfinderView).setLaserVisibility(false) // 移除默认的红色激光线
         customViewfinderView.visibility = View.VISIBLE
+        customViewfinderView.initialize()
 
+        barcodeView = findViewById(R.id.zxing_barcode_scanner)
+        (barcodeView.viewFinder as ViewfinderView).setLaserVisibility(false) // 移除默认的红色激光线
         val settings = barcodeView.cameraSettings
         settings.isContinuousFocusEnabled = true // 启用连续对焦
         barcodeView.cameraSettings = settings
@@ -115,7 +120,8 @@ class CaptureQRCodeActivity : AppCompatActivity() {
                 }
             })
 
-        // 处理返回操作
+        customViewfinderView.startScannerAnimation()
+
         onBackPressedDispatcher.addCallback(this,
             object : OnBackPressedCallback(true) {
                 override fun handleOnBackPressed() {
@@ -149,7 +155,7 @@ class CaptureQRCodeActivity : AppCompatActivity() {
 
 class CustomViewfinderView(context: Context, attrs: AttributeSet) : View(context, attrs) {
     private val paint = Paint()
-    private val scannerLineColor = Color.parseColor("#0F826E") // 激光线颜色
+    private var scannerLineColor = ContextCompat.getColor(context, R.color.default_ui_color) // 激光线颜色
     private val scannerLineThickness = 10 // 激光线厚度
     private var scannerLineY = 0 // 当前激光线的 Y 位置
     private val scannerSpeed = 5 // 激光线移动速度
@@ -159,13 +165,19 @@ class CustomViewfinderView(context: Context, attrs: AttributeSet) : View(context
 
     var onLaserLineCrossed: (() -> Unit)? = null // 激光线经过中间时触发回调
 
-    init {
-        paint.color = scannerLineColor
-        paint.strokeWidth = scannerLineThickness.toFloat()
-        startScannerAnimation()
+    companion object {
+        var settingsViewModel: SettingsViewModel? = null
     }
 
-    private fun startScannerAnimation() {
+    fun initialize() {
+        scannerLineColor = settingsViewModel?.getUIColor() ?: run {
+            ContextCompat.getColor(context, R.color.default_ui_color)
+        }
+        paint.color = scannerLineColor
+        paint.strokeWidth = scannerLineThickness.toFloat()
+    }
+
+    fun startScannerAnimation() {
         handler.post(object : Runnable {
             override fun run() {
                 invalidate() // 触发重新绘制
