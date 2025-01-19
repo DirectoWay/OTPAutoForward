@@ -2,6 +2,7 @@ package com.otpautoforward.handler
 
 import android.content.res.ColorStateList
 import android.widget.ImageView
+import android.widget.TextView
 import androidx.core.content.ContextCompat
 import androidx.databinding.BindingAdapter
 import androidx.lifecycle.LifecycleOwner
@@ -64,6 +65,16 @@ fun setTrackTint(view: SwitchMaterial, activeColor: Int?) {
 fun setSrcCompat(view: ImageView, resource: Int?) {
     resource?.let { view.setImageResource(it) }
 }
+
+@BindingAdapter("textColor")
+fun setTextColor(view: TextView, color: Int?) {
+    if (color != null) {
+        view.setTextColor(color)
+    } else {
+        view.setTextColor(android.graphics.Color.BLACK)
+    }
+}
+
 
 
 

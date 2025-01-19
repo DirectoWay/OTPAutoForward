@@ -20,8 +20,9 @@ class PairedDeviceSettingsActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         // 获取 viewModel 实例,与 MainActivity 共享 fragment
-        settingsViewModel =
-            ViewModelProvider(MainActivity.getInstance())[SettingsViewModel::class.java]
+        settingsViewModel = ViewModelProvider(MainActivity.getInstance())[SettingsViewModel::class.java]
+        binding.settingsViewModel = settingsViewModel
+        binding.lifecycleOwner = this@PairedDeviceSettingsActivity
 
         // 点击已配对的设备后可查看的配对信息
         val deviceId = intent.getStringExtra("DEVICE_ID")

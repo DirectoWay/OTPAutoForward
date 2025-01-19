@@ -1,112 +1,122 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<layout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:background="#F5F5F5"
-    android:fitsSystemWindows="false"
-    android:orientation="vertical"
-    android:padding="16dp">
+    xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- 设备类型图标 -->
-    <ImageView
-        android:id="@+id/icon_paired_device_type"
-        android:layout_width="50dp"
-        android:layout_height="50dp"
-        android:layout_gravity="center"
-        android:src="@drawable/baseline_device_unknown_24"
-        app:tint="#808080" />
+    <data>
 
-    <!-- 设备名称 -->
-    <TextView
-        android:id="@+id/text_paired_device_name"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="10dp"
-        android:gravity="center"
-        android:text="未知设备"
-        android:textColor="@color/black"
-        android:textSize="24sp"
-        android:textStyle="bold"
-        tools:ignore="HardcodedText" />
-
-    <!-- 垃圾桶图标和取消配对 -->
-    <com.google.android.material.card.MaterialCardView
-        android:id="@+id/view_paired_cancel"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="20dp"
-        android:backgroundTint="#F5F5F5"
-        app:cardCornerRadius="0dp"
-        app:cardElevation="0dp">
-
-        <LinearLayout
-            android:id="@+id/layout_paired_cancel"
-            android:layout_width="match_parent"
-            android:layout_height="75dp"
-            android:gravity="center"
-            android:orientation="horizontal">
-
-            <ImageView
-                android:id="@+id/icon_trash"
-                android:layout_width="30dp"
-                android:layout_height="30dp"
-                android:src="@drawable/outline_delete_24"
-                app:tint="#0F826E" />
-
-            <TextView
-                android:id="@+id/text_cancel_pairing"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="10dp"
-                android:text="取消配对"
-                android:textColor="#0F826E"
-                android:textSize="19sp"
-                android:textStyle="bold"
-                tools:ignore="HardcodedText" />
-        </LinearLayout>
-    </com.google.android.material.card.MaterialCardView>
-
-    <!-- 警告图标和设备ID -->
-    <ImageView
-        android:id="@+id/icon_warning"
-        android:layout_width="30dp"
-        android:layout_height="30dp"
-        android:layout_gravity="start"
-        android:layout_marginStart="10dp"
-        android:layout_marginTop="25dp"
-        android:src="@drawable/round_error_outline_24"
-        app:tint="#808080" />
+        <variable
+            name="settingsViewModel"
+            type="com.otpautoforward.viewmodel.SettingsViewModel" />
+    </data>
 
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="10dp"
-        android:layout_marginTop="10dp"
-        android:orientation="vertical">
+        android:layout_height="match_parent"
+        android:background="#F5F5F5"
+        android:fitsSystemWindows="false"
+        android:orientation="vertical"
+        android:padding="16dp">
 
+        <!-- 设备类型图标 -->
+        <ImageView
+            android:id="@+id/icon_paired_device_type"
+            android:layout_width="50dp"
+            android:layout_height="50dp"
+            android:layout_gravity="center"
+            android:src="@drawable/baseline_device_unknown_24"
+            app:tint="#808080" />
+
+        <!-- 设备名称 -->
         <TextView
-            android:id="@+id/text_device_fingerprint"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="start"
-            android:gravity="start"
-            android:text="设备ID："
-            android:textColor="#808080"
-            android:textSize="16sp"
-            android:textStyle="bold"
-            tools:ignore="HardcodedText" />
-        <!-- 设备指纹内容 -->
-        <TextView
-            android:id="@+id/text_paired_device_id"
-            android:layout_width="wrap_content"
+            android:id="@+id/text_paired_device_name"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="10dp"
-            android:gravity="start"
-            android:text="ID获取异常"
-            android:textColor="#808080"
-            android:textSize="16sp"
+            android:gravity="center"
+            android:text="未知设备"
+            android:textColor="@color/black"
+            android:textSize="24sp"
+            android:textStyle="bold"
             tools:ignore="HardcodedText" />
+
+        <!-- 垃圾桶图标和取消配对 -->
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/view_paired_cancel"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:backgroundTint="#F5F5F5"
+            app:cardCornerRadius="0dp"
+            app:cardElevation="0dp">
+
+            <LinearLayout
+                android:id="@+id/layout_paired_cancel"
+                android:layout_width="match_parent"
+                android:layout_height="75dp"
+                android:gravity="center"
+                android:orientation="horizontal">
+
+                <ImageView
+                    android:id="@+id/icon_trash"
+                    android:layout_width="30dp"
+                    android:layout_height="30dp"
+                    android:src="@drawable/outline_delete_24"
+                    app:tint="@{settingsViewModel.uiColor}" />
+
+                <TextView
+                    android:id="@+id/text_cancel_pairing"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="10dp"
+                    android:text="取消配对"
+                    android:textColor="@{settingsViewModel.uiColor}"
+                    android:textSize="19sp"
+                    android:textStyle="bold"
+                    tools:ignore="HardcodedText" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- 警告图标和设备ID -->
+        <ImageView
+            android:id="@+id/icon_warning"
+            android:layout_width="30dp"
+            android:layout_height="30dp"
+            android:layout_gravity="start"
+            android:layout_marginStart="10dp"
+            android:layout_marginTop="25dp"
+            android:src="@drawable/round_error_outline_24"
+            app:tint="#808080" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="10dp"
+            android:layout_marginTop="10dp"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/text_device_fingerprint"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="start"
+                android:gravity="start"
+                android:text="设备ID："
+                android:textColor="#808080"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                tools:ignore="HardcodedText" />
+            <!-- 设备指纹内容 -->
+            <TextView
+                android:id="@+id/text_paired_device_id"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:gravity="start"
+                android:text="ID获取异常"
+                android:textColor="#808080"
+                android:textSize="16sp"
+                tools:ignore="HardcodedText" />
+        </LinearLayout>
     </LinearLayout>
-</LinearLayout>
+</layout>
