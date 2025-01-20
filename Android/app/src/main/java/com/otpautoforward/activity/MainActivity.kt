@@ -47,6 +47,7 @@ import com.kongzue.dialogx.util.TextInfo
 import com.kongzue.dialogxmaterialyou.style.MaterialYouStyle
 import com.otpautoforward.R
 import com.otpautoforward.databinding.ActivityMainBinding
+import com.otpautoforward.dataclass.AppConfig
 import com.otpautoforward.handler.JsonHandler
 import com.otpautoforward.handler.UpdateHandler
 import com.otpautoforward.viewmodel.SettingsViewModel
@@ -57,15 +58,7 @@ import com.skydoves.colorpickerview.sliders.AlphaSlideBar
 import com.skydoves.colorpickerview.sliders.BrightnessSlideBar
 import kotlinx.coroutines.launch
 
-
-private const val testMessage =
-    "【测试短信】尾号为1234的用户您好, 987123 是您的验证码, 这是一条测试短信"
-private const val testSender = "测试员"
 private const val tag = "OTPAutoForward"
-
-/** 远程仓库中的 QA 数据 */
-private const val qaJson =
-    "https://gitee.com/DirectoWay/OTPAutoForward/raw/net472/Android/app/src/main/assets/questionAndAnswer.json"
 
 class MainActivity : AppCompatActivity() {
     // 用于获取 MainActivity 的实例
@@ -291,7 +284,7 @@ class MainActivity : AppCompatActivity() {
             .setMessage("即将跳转至反馈页面?")
             .setOkButton("确定") { _, _ ->
                 val intent = Intent(
-                    Intent.ACTION_VIEW, Uri.parse("https://shimo.im/forms/25q5X4Wl48fWJQ3D/fill")
+                    Intent.ACTION_VIEW, Uri.parse(AppConfig.FeedBackUrl.value)
                 )
                 startActivity(intent)
                 false
@@ -304,7 +297,7 @@ class MainActivity : AppCompatActivity() {
     private fun openQADialog() {
         WaitDialog.show("加载中")
         lifecycleScope.launch {
-            val jsonContent = jsonHandler.fetchQAJson(qaJson)
+            val jsonContent = jsonHandler.fetchQAJson(AppConfig.QAResource.value)
             jsonContent?.let { // 处理获取到的 JSON 内容
                 val formattedContent = jsonHandler.formatQAJson(it)
                 WaitDialog.dismiss()
@@ -410,7 +403,7 @@ class MainActivity : AppCompatActivity() {
     /** 往 Win 端发送测试用的短信 */
     private fun sendTestSMS() {
         val intent = Intent("com.OTPAutoForward.TEST_SMS_RECEIVED")
-        intent.putExtra("extra_test_sms", "$testMessage\n发送者：$testSender")
+        intent.putExtra("extra_test_sms", "${AppConfig.TestMessage.value}\n发送者：${AppConfig.TestSender.value}")
         intent.setPackage(this@MainActivity.packageName)
         sendOrderedBroadcast(intent, null)
     }

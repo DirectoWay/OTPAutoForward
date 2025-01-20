@@ -43,6 +43,10 @@ class UpdateHandler {
 
     private val repository = AppConfig.Repository.value
 
+    private val giteeApiUrl = AppConfig.GiteeApiUrl.value
+
+    private val githubApiUrl = AppConfig.GitHubApiUrl.value
+
     private val client = OkHttpClient()
 
     suspend fun checkUpdatesAsync(context: Context) {
@@ -100,13 +104,13 @@ class UpdateHandler {
             releaseSource.contains("gitee") -> {
                 val id = getGiteeReleaseIdAsync() ?: return Pair(null, null)
                 return getReleaseAsync(
-                    "https://gitee.com/api/v5/repos/$repositoryOwner/$repository", "/releases/", id
+                    "$giteeApiUrl/$repositoryOwner/$repository", "/releases/", id
                 )
             }
 
             releaseSource.contains("github") -> {
                 return getReleaseAsync(
-                    "https://api.github.com/repos/$repositoryOwner/$repository", "/releases/latest"
+                    "$githubApiUrl/$repositoryOwner/$repository", "/releases/latest"
                 )
             }
 
@@ -120,15 +124,12 @@ class UpdateHandler {
      * @return 最新发行版的 ID 号
      */
     private suspend fun getGiteeReleaseIdAsync(): Int? {
-        val giteeUrl = "https://gitee.com/api/v5/repos/"
         val domain = "/releases?"
-        val owner = repositoryOwner
-        val repo = repository
         val page = 1
         val perPage = 1
         val direction = "desc" // 降序排列 release 版本 (首号永远为最新版)
         val requestUrlString =
-            "$giteeUrl$owner/$repo$domain&page=$page&per_page=$perPage&direction=$direction"
+            "$giteeApiUrl/$repositoryOwner/$repository$domain&page=$page&per_page=$perPage&direction=$direction"
 
         return try {
             withContext(Dispatchers.IO) {
