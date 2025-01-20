@@ -24,6 +24,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     val uiColor: LiveData<Int> get() = _uiColor
 
     private val _subColor = MutableLiveData<Int>()
+
+    @get:JvmName("getSubColor")
     val subColor: LiveData<Int> get() = _subColor
 
     private val _negativeColor = MutableLiveData<Int>()
@@ -63,6 +65,27 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             ContextCompat.getColor(getApplication(), R.color.default_ui_color)
         )
         return color
+    }
+
+    /** 获取当前的主题色 - ARGB 格式 */
+    fun getUIColorARGB(): String {
+        val color = sharedPreferences.getInt(
+            SettingKey.UIColor.key,
+            ContextCompat.getColor(getApplication(), R.color.default_ui_color)
+        )
+        val colorHex = String.format("#%08X", color)
+        return colorHex
+    }
+
+    /** 获取当前的主题色 - RGB 格式 */
+    fun getUIColorRGB(): String {
+        val color = sharedPreferences.getInt(
+            SettingKey.UIColor.key,
+            ContextCompat.getColor(getApplication(), R.color.default_ui_color)
+        )
+        val colorRGB = color and 0x00FFFFFF
+        val colorHex = String.format("#%06X", colorRGB)
+        return colorHex
     }
 
     private fun getSubColor(): Int {

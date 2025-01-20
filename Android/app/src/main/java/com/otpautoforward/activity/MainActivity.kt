@@ -194,13 +194,15 @@ class MainActivity : AppCompatActivity() {
     @SuppressLint("BatteryLife")
     /** 添加电池白名单 */
     private fun batteryOpti() {
+        val uiColor = settingsViewModel.getUIColorRGB()
+
         MessageDialog.build()
             .setTitle("电池优化白名单请求")
             .setMessage(
                 Html.fromHtml(
-                    "请允许 App 的<b><font color='#0F826E'>省电策略</font></b>被设置为" +
-                            "<b><font color='#0F826E'>无限制</font></b>或" +
-                            "<b><font color='#0F826E'>不受限制</font></b>, " +
+                    "请允许 App 的<b><font color='$uiColor'>省电策略</font></b>被设置为" +
+                            "<b><font color='$uiColor'>无限制</font></b>或" +
+                            "<b><font color='$uiColor'>不受限制</font></b>, " +
                             "否则息屏后可能无法进行短信转发<br><br>" +
                             "如果您已经进行过相关设置, 可关闭弹窗",
                     Html.FROM_HTML_MODE_LEGACY
