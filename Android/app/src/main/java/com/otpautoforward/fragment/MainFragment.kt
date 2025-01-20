@@ -34,6 +34,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.lifecycleScope
 import com.kongzue.dialogx.dialogs.InputDialog
 import com.kongzue.dialogx.dialogs.MessageDialog
 import com.kongzue.dialogx.style.MaterialStyle
@@ -50,6 +51,8 @@ import com.otpautoforward.handler.GlobalHandler
 import com.otpautoforward.handler.PairHandler
 import com.otpautoforward.handler.WebSocketWorker
 import com.otpautoforward.viewmodel.SettingsViewModel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import org.greenrobot.eventbus.EventBus
 import org.greenrobot.eventbus.Subscribe
 import org.greenrobot.eventbus.ThreadMode
@@ -188,14 +191,15 @@ class MainFragment : Fragment() {
                 val currentState = settingsViewModel.settings.value?.get(key) == true
                 val lastState = lastSwitchStates[key]
 
-                // 只有 switch 被拨动时才播放动画
-                if (currentState != lastState) {
-                    startIconAnimation(key, currentState, iconColor)
-                    lastSwitchStates[key] = currentState
+                lifecycleScope.launch {
+                    // 只有 switch 被拨动时才播放动画
+                    if (currentState != lastState) {
+                        startIconAnimation(key, currentState)
+                        lastSwitchStates[key] = currentState
+                        delay(300)
+                    }
+                    updateIconColor(key, currentState, iconColor)
                 }
-
-                // 更新图标颜色
-                updateIconColor(key, currentState, iconColor)
             }
         }
 
@@ -392,7 +396,7 @@ class MainFragment : Fragment() {
     }
 
     /** 图标切换时的动画 */
-    private fun animateIconChange(imageView: ImageView, newImageResId: Int, newTintColor: Int) {
+    private fun animateIconChange(imageView: ImageView, newImageResId: Int) {
         val fadeOut = ObjectAnimator.ofFloat(imageView, "alpha", 1f, 0f)
         val scaleOutX = ObjectAnimator.ofFloat(imageView, "scaleX", 1f, 0f)
         val scaleOutY = ObjectAnimator.ofFloat(imageView, "scaleY", 1f, 0f)
@@ -411,7 +415,6 @@ class MainFragment : Fragment() {
         outAnimatorSet.addListener(object : AnimatorListenerAdapter() {
             override fun onAnimationEnd(animation: Animator) {
                 imageView.setImageResource(newImageResId)
-                imageView.setColorFilter(newTintColor)
                 inAnimatorSet.start()
             }
         })
@@ -483,38 +486,34 @@ class MainFragment : Fragment() {
         switchWarnView.animate().alpha(1f).translationY(0f).setDuration(500).setListener(null)
     }
 
-    private fun startIconAnimation(key: String, currentState: Boolean, iconColor: Int) {
+    private fun startIconAnimation(key: String, currentState: Boolean) {
         when (key) {
             SettingKey.SmsEnabled.key -> {
                 if (currentState) expandAnimation() else collapseAnimation()
                 animateIconChange(
                     binding.iconSms,
-                    if (currentState) R.drawable.baseline_forward_to_inbox_24 else R.drawable.outline_mail_lock_24,
-                    iconColor
+                    if (currentState) R.drawable.baseline_forward_to_inbox_24 else R.drawable.outline_mail_lock_24
                 )
             }
 
             SettingKey.ScreenLocked.key -> {
                 animateIconChange(
                     binding.iconForwardScreenoff,
-                    if (currentState) R.drawable.baseline_screen_lock_portrait_24 else R.drawable.baseline_smartphone_24,
-                    iconColor
+                    if (currentState) R.drawable.baseline_screen_lock_portrait_24 else R.drawable.baseline_smartphone_24
                 )
             }
 
             SettingKey.SyncDoNotDistribute.key -> {
                 animateIconChange(
                     binding.iconSyncDoNotDisturb,
-                    if (currentState) R.drawable.outline_notifications_off_24 else R.drawable.outline_notifications_24,
-                    iconColor
+                    if (currentState) R.drawable.outline_notifications_off_24 else R.drawable.outline_notifications_24
                 )
             }
 
             SettingKey.ForwardOnlyOTP.key -> {
                 animateIconChange(
                     binding.iconForwardOnlyOTP,
-                    if (currentState) R.drawable.outline_verified_24 else R.drawable.outline_sms_24,
-                    iconColor
+                    if (currentState) R.drawable.outline_verified_24 else R.drawable.outline_sms_24
                 )
             }
 
