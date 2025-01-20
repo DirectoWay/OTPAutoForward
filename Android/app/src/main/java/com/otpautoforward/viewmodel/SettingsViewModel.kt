@@ -24,8 +24,6 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     val uiColor: LiveData<Int> get() = _uiColor
 
     private val _subColor = MutableLiveData<Int>()
-
-    @get:JvmName("getSubColor")
     val subColor: LiveData<Int> get() = _subColor
 
     private val _negativeColor = MutableLiveData<Int>()
@@ -88,7 +86,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         return colorHex
     }
 
-    private fun getSubColor(): Int {
+    private fun getSubUIColor(): Int {
         val color = sharedPreferences.getInt(
             SettingKey.SubColor.key,
             ContextCompat.getColor(getApplication(), R.color.default_sub_color)
@@ -103,7 +101,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
     private fun loadColor() {
         _uiColor.value = getUIColor()
-        _subColor.value = getSubColor()
+        _subColor.value = getSubUIColor()
         _negativeColor.value = getNegativeColor()
     }
 
