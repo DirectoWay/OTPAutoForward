@@ -70,6 +70,7 @@ class MainFragment : Fragment() {
     private val pairHandler = PairHandler()
 
     private lateinit var qrCodeLauncher: ActivityResultLauncher<Intent>
+    lateinit var pairDeviceSettingsActivityLauncher: ActivityResultLauncher<Intent>
 
     lateinit var settingIcon: ImageView
     private lateinit var rotateAnimation: Animation
@@ -203,21 +204,20 @@ class MainFragment : Fragment() {
             }
         }
 
-        settingsViewModel.refreshPairedDevice.observe(viewLifecycleOwner) {
-            refreshPairedDevice()
-        }
-
         switchListener()
 
         // 初始化小齿轮的动画效果
-        rotateAnimation =
-            AnimationUtils.loadAnimation(requireContext(), R.anim.animation_device_typeicon)
         settingIcon = pairDeviceBinding.iconPairedSetting
-    }
+        rotateAnimation = AnimationUtils.loadAnimation(requireContext(), R.anim.animation_device_typeicon)
 
-    override fun onResume() {
-        super.onResume()
-        settingIcon.startAnimation(rotateAnimation)
+        pairDeviceSettingsActivityLauncher =
+            registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+                settingIcon.startAnimation(rotateAnimation)
+            }
+
+        settingsViewModel.refreshPairedDevice.observe(viewLifecycleOwner) {
+            refreshPairedDevice()
+        }
     }
 
     /** 检查相机权限 */

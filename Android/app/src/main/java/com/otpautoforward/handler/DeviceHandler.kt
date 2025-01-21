@@ -88,7 +88,7 @@ class DeviceHandler(private val container: LinearLayout) {
                         putExtra("DEVICE_Name", device.deviceName)
                         putExtra("DEVICE_TYPE_ICON", device.typeIcon)
                     }
-                container.context.startActivity(intent)
+                fragment.pairDeviceSettingsActivityLauncher.launch(intent)
             }
             container.addView(binding.root) // 将设备视图添加到容器
         }
