@@ -220,7 +220,10 @@ class UpdateHandler {
     private suspend fun downloadFileAsync(
         context: Context
     ): String? {
-        WaitDialog.show("加载中")
+        var cancelDownload = false
+
+        WaitDialog.show("加载中").setCancelable(true)
+
         return try {
             val result = withContext(Dispatchers.IO) {
                 val externalCacheDir = context.externalCacheDir
@@ -256,8 +259,22 @@ class UpdateHandler {
                     var bytesRead: Int
                     var totalBytesRead: Long = 0
 
-                    val dialog = WaitDialog.show("正在下载... 0%").setProgress(0f)
+                    val dialog = WaitDialog.show("正在下载... 0%")
+                        .setProgress(0f)
+                        .setCancelable(true)
+                        .setOnBackPressedListener {
+                            cancelDownload = true
+                            false
+                        }
+
                     while (inputStream.read(buffer).also { bytesRead = it } != -1) {
+                        if (cancelDownload) {
+                            inputStream.close()
+                            outputStream.close()
+                            outputFile.delete()
+                            throw Exception("下载已被用户取消")
+                        }
+
                         outputStream.write(buffer, 0, bytesRead)
                         totalBytesRead += bytesRead
 
