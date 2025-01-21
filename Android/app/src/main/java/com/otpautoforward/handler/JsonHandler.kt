@@ -1,33 +1,41 @@
 package com.otpautoforward.handler
 
 import android.content.Context
-import android.graphics.Color
 import android.text.Html
 import android.text.SpannableString
-import android.text.Spanned
-import android.text.style.ForegroundColorSpan
 import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import okhttp3.Dns
 import okhttp3.Request
 import okhttp3.OkHttpClient
 import org.json.JSONObject
 import java.io.IOException
+import java.net.Proxy
+import java.util.concurrent.TimeUnit
 
 private const val tag = "OTPAutoForward"
 
 class JsonHandler(private val context: Context) {
-    private val client = OkHttpClient()
 
     /** 获取 "常见问题" 中的问答内容 */
     suspend fun fetchQAJson(url: String?): String? {
         return withContext(Dispatchers.IO) {
             try {
                 // url 不为空时先从网络上拉取 QA 数据
-                if (url != null) {
+                if (!url.isNullOrEmpty()) {
+                    val client = OkHttpClient.Builder()
+                        .connectTimeout(5, TimeUnit.SECONDS)
+                        .readTimeout(5, TimeUnit.SECONDS)
+                        .writeTimeout(5, TimeUnit.SECONDS)
+                        .proxy(Proxy.NO_PROXY)
+                        .dns(Dns.SYSTEM)
+                        .build()
+
                     val request = Request.Builder()
                         .url(url)
                         .build()
+
                     client.newCall(request).execute().use { response ->
                         if (!response.isSuccessful) {
                             throw IOException("Unexpected response code: $response")
