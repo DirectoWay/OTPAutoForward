@@ -1,10 +1,13 @@
 ﻿using System;
 using System.Diagnostics;
+using log4net;
 
 namespace OTPAutoForward.ServiceHandler
 {
     public static class FeedbackHandler
     {
+        private static readonly ILog Log = LogManager.GetLogger(typeof(FeedbackHandler));
+
         public static void OpenFeedbackUrl()
         {
             try
@@ -16,7 +19,8 @@ namespace OTPAutoForward.ServiceHandler
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"URL 处理异常: {ex.Message}");
+                Log.Error("访问反馈页面时发生异常: " + ex.Message);
+                Console.WriteLine("访问反馈页面时发生异常: " + ex);
             }
         }
     }

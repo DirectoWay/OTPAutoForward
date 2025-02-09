@@ -261,8 +261,8 @@ namespace OTPAutoForward.ServiceHandler
             }
             catch (Exception ex)
             {
-                Log.Error($"Error processing keyword list: {ex.Message}");
-                Console.WriteLine("处理");
+                Log.Error($"处理短信关键字列表时发生异常: {ex.Message}");
+                Console.WriteLine($"处理短信关键字列表时发生异常: {ex}");
             }
 
             // 正则规则表
