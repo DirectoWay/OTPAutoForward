@@ -15,12 +15,13 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "0.5.2"
-
+        buildConfigField("String", "VERSION_TAG", "\"RC\"")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildFeatures {
         dataBinding = true
+        buildConfig = true
     }
 
     buildTypes {
