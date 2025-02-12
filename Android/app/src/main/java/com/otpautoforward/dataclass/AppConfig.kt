@@ -25,6 +25,9 @@ sealed class AppConfig {
         val QAResource =
             StringConfig("https://gitee.com/DirectoWay/OTPAutoForward/raw/net472/Android/app/src/main/assets/questionAndAnswer.json")
 
+        val PrivacyPolicyResource =
+            StringConfig("https://gitee.com/DirectoWay/OTPAutoForward/raw/net472/Android/app/src/main/assets/privacyPolicy.json")
+
         val FeedBackUrl = StringConfig("https://shimo.im/forms/25q5X4Wl48fWJQ3D/fill")
     }
 }

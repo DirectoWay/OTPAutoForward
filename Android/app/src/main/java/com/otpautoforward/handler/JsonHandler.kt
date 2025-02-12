@@ -87,4 +87,32 @@ class JsonHandler(private val context: Context) {
         }
     }
 
+    fun formatPrivacyPolicyJson(jsonString: String): CharSequence {
+        return try {
+            val jsonObject = JSONObject(jsonString)
+            val privacyArray = jsonObject.getJSONArray("privacyPolicy")
+            val stringBuilder = StringBuilder()
+
+            for (i in 0 until privacyArray.length()) {
+                val item = privacyArray.getJSONObject(i)
+                val title = item.getString("title")
+                val content = item.getString("content")
+
+                // 标题颜色改为黑色
+                stringBuilder.append("<font color='#000000'>$title</font><br>")
+                stringBuilder.append("<font color='#666666'>$content</font><br><br>")
+            }
+
+            if (jsonObject.has("publishTime")) {
+                stringBuilder.append("<font color='#666666'>")
+                stringBuilder.append(jsonObject.getString("publishTime"))
+                stringBuilder.append("</font>")
+            }
+
+            Html.fromHtml(stringBuilder.toString(), Html.FROM_HTML_MODE_LEGACY)
+        } catch (e: Exception) {
+            SpannableString("暂无数据")
+        }
+    }
+
 }

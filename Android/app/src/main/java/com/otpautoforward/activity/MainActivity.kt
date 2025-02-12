@@ -297,6 +297,11 @@ class MainActivity : AppCompatActivity() {
                     sourceCode.setOnClickListener {
                         openSourceCode()
                     }
+
+                    val privacyPolicy = v.findViewById<TextView>(R.id.text_privacy_policy)
+                    privacyPolicy.setOnClickListener {
+                        openPrivacyPolicy()
+                    }
                 }
             })
             .setTitle("关于")
@@ -328,6 +333,25 @@ class MainActivity : AppCompatActivity() {
             .setCancelButton("取消")
             .setButtonOrientation(LinearLayout.VERTICAL)
             .show()
+    }
+
+    /** 跳转至隐私政策页面 */
+    private fun openPrivacyPolicy() {
+        WaitDialog.show("加载中")
+        lifecycleScope.launch {
+            val jsonContent = jsonHandler.fetchJson(AppConfig.PrivacyPolicyResource.value, "privacyPolicy.json")
+            jsonContent?.let {
+                val formattedContent = jsonHandler.formatPrivacyPolicyJson(it)
+                WaitDialog.dismiss()
+                MessageDialog.build()
+                    .setTitle("隐私政策")
+                    .setMessage(formattedContent)
+                    .setOkButton("确定")
+                    .show()
+            } ?: run {
+                Log.e(tag, "隐私政策获取失败")
+            }
+        }
     }
 
     /** 跳转至问题反馈页面 */
