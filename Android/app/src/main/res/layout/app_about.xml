@@ -57,7 +57,6 @@
         app:layout_constraintHorizontal_chainStyle="packed"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="@id/text_source_code"
-        app:layout_constraintVertical_bias="0.0"
         tools:ignore="HardcodedText" />
 
     <TextView
@@ -88,7 +87,6 @@
         app:layout_constraintHorizontal_chainStyle="packed"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="@id/text_privacy_policy"
-        app:layout_constraintVertical_bias="0.0"
         tools:ignore="HardcodedText" />
 
     <TextView
@@ -120,7 +118,6 @@
         app:layout_constraintHorizontal_chainStyle="packed"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="@id/text_contact_us"
-        app:layout_constraintVertical_bias="0.0"
         app:tint="@color/dark_gray"
         tools:ignore="HardcodedText" />
 

@@ -26,6 +26,7 @@ import android.view.View
 import android.view.animation.AnticipateOvershootInterpolator
 import android.view.animation.DecelerateInterpolator
 import android.widget.ImageView
+import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
@@ -291,12 +292,41 @@ class MainActivity : AppCompatActivity() {
                     val currentVersion = v.findViewById<TextView>(R.id.text_version)
                     val versionDesc = "v" + BuildConfig.VERSION_NAME + " | " + BuildConfig.VERSION_TAG
                     currentVersion.text = versionDesc
+
+                    val sourceCode = v.findViewById<TextView>(R.id.text_source_code)
+                    sourceCode.setOnClickListener {
+                        openSourceCode()
+                    }
                 }
             })
             .setTitle("关于")
             .setOkButton("确定")
             .setCancelButton("取消")
             .setCancelable(false)
+            .show()
+    }
+
+    /** 跳转至源码页面 */
+    private fun openSourceCode() {
+        MessageDialog.build()
+            .setTitle("打开外部浏览器")
+            .setMessage("即将跳转至源码页面?")
+            .setOkButton("GitHub") { _, _ ->
+                val intent = Intent(
+                    Intent.ACTION_VIEW, Uri.parse(AppConfig.GitHubSource.value)
+                )
+                startActivity(intent)
+                false
+            }
+            .setOtherButton("Gitee") { _, _ ->
+                val intent = Intent(
+                    Intent.ACTION_VIEW, Uri.parse(AppConfig.GiteeSource.value)
+                )
+                startActivity(intent)
+                false
+            }
+            .setCancelButton("取消")
+            .setButtonOrientation(LinearLayout.VERTICAL)
             .show()
     }
 
