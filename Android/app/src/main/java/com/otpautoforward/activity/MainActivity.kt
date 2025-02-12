@@ -350,7 +350,7 @@ class MainActivity : AppCompatActivity() {
     private fun openQADialog() {
         WaitDialog.show("加载中")
         lifecycleScope.launch {
-            val jsonContent = jsonHandler.fetchJson(AppConfig.QAResource.value, "QuestionAndAnswer.json")
+            val jsonContent = jsonHandler.fetchJson(AppConfig.QAResource.value, "questionAndAnswer.json")
             jsonContent?.let { // 处理获取到的 JSON 内容
                 val formattedContent = jsonHandler.formatQAJson(it)
                 WaitDialog.dismiss()
