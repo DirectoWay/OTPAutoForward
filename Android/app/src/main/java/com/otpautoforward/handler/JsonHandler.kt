@@ -18,42 +18,51 @@ private const val tag = "OTPAutoForward"
 
 class JsonHandler(private val context: Context) {
 
-    /** 获取 "常见问题" 中的问答内容 */
-    suspend fun fetchQAJson(url: String?): String? {
-        return withContext(Dispatchers.IO) {
-            try {
-                // url 不为空时先从网络上拉取 QA 数据
-                if (!url.isNullOrEmpty()) {
-                    val client = OkHttpClient.Builder()
-                        .connectTimeout(5, TimeUnit.SECONDS)
-                        .readTimeout(5, TimeUnit.SECONDS)
-                        .writeTimeout(5, TimeUnit.SECONDS)
-                        .proxy(Proxy.NO_PROXY)
-                        .dns(Dns.SYSTEM)
-                        .build()
-
-                    val request = Request.Builder()
-                        .url(url)
-                        .build()
-
-                    client.newCall(request).execute().use { response ->
-                        if (!response.isSuccessful) {
-                            throw IOException("Unexpected response code: $response")
-                        }
-                        return@withContext response.body?.string()
-                    }
-                }
-            } catch (e: Exception) {
-                Log.e(tag, "从网络读取 QA 数据时发生异常", e)
-            }
-
-            // 从本地读取 QA 数据
+    /**
+     * 从远程仓库中获取 Json 数据
+     *
+     * @param url 远程仓库中的资源地址, 参数为空时默认从本地读取 Json 数据
+     * @param localFile assets 目录中, 本地 Json 的完整文件名
+     * @return Json 数据
+     */
+    suspend fun fetchJson(url: String?, localFile: String): String? = withContext(Dispatchers.IO) {
+        if (url.isNullOrEmpty()) {
             return@withContext try {
-                context.assets.open("questionAndAnswer.json").bufferedReader().use { it.readText() }
+                context.assets.open(localFile).bufferedReader().use { it.readText() }
             } catch (e: Exception) {
-                Log.e(tag, "从本地读取 QA 数据时发生异常", e)
+                Log.e(tag, "从本地读取 Json 数据时发生异常", e)
                 null
             }
+        }
+
+        try {
+            val client = OkHttpClient.Builder()
+                .connectTimeout(5, TimeUnit.SECONDS)
+                .readTimeout(5, TimeUnit.SECONDS)
+                .writeTimeout(5, TimeUnit.SECONDS)
+                .proxy(Proxy.NO_PROXY)
+                .dns(Dns.SYSTEM)
+                .build()
+
+            val request = Request.Builder()
+                .url(url)
+                .build()
+
+            client.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) {
+                    throw IOException("Unexpected response code: $response")
+                }
+                response.body?.string()?.let { return@withContext it }
+            }
+        } catch (e: Exception) {
+            Log.e(tag, "从网络读取 Json 数据时发生异常", e)
+        }
+
+        return@withContext try {
+            context.assets.open(localFile).bufferedReader().use { it.readText() }
+        } catch (e: Exception) {
+            Log.e(tag, "从本地读取 Json 数据时发生异常", e)
+            null
         }
     }
 

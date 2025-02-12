@@ -23,7 +23,7 @@ sealed class AppConfig {
 
         /** 远程仓库中的 QA 数据 */
         val QAResource =
-            StringConfig("https://gitee.com/DirectoWay/OTPAutoForward/raw/net472/Android/app/src/main/assets/questionAndAnswer.json")
+            StringConfig("https://gitee.com/DirectoWay/OTPAutoForward/raw/net472/Android/app/src/main/assets/QuestionAndAnswer.json")
 
         val FeedBackUrl = StringConfig("https://shimo.im/forms/25q5X4Wl48fWJQ3D/fill")
     }
