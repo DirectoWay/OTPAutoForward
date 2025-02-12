@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:layout_marginTop="20dp">
+
+    <ImageView
+        android:id="@+id/icon_sms"
+        android:layout_width="100dp"
+        android:layout_height="100dp"
+        android:layout_marginBottom="20dp"
+        android:contentDescription="sms"
+        android:src="@drawable/sms"
+        app:layout_constraintBottom_toTopOf="@id/text_OTPAutoForward"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        tools:ignore="HardcodedText" />
+
+    <TextView
+        android:id="@+id/text_OTPAutoForward"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="10dp"
+        android:gravity="center"
+        android:text="OTPAutoForward"
+        android:textColor="@color/black"
+        android:textSize="20sp"
+        android:textStyle="bold"
+        app:layout_constraintBottom_toTopOf="@id/text_version"
+        app:layout_constraintTop_toBottomOf="@id/icon_sms"
+        tools:ignore="HardcodedText" />
+
+    <TextView
+        android:id="@+id/text_version"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:text="v1.0.0 | release"
+        android:textColor="#808080"
+        android:textSize="15sp"
+        android:textStyle="bold"
+        app:layout_constraintBottom_toTopOf="@id/text_source_code"
+        app:layout_constraintTop_toBottomOf="@id/text_OTPAutoForward"
+        tools:ignore="HardcodedText" />
+
+    <ImageView
+        android:id="@+id/icon_source_code"
+        android:layout_width="24dp"
+        android:layout_height="24dp"
+        android:contentDescription="versionIcon"
+        android:src="@drawable/github_svgrepo_com"
+        app:layout_constraintBottom_toBottomOf="@id/text_source_code"
+        app:layout_constraintEnd_toStartOf="@id/text_source_code"
+        app:layout_constraintHorizontal_chainStyle="packed"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="@id/text_source_code"
+        app:layout_constraintVertical_bias="0.0"
+        tools:ignore="HardcodedText" />
+
+    <TextView
+        android:id="@+id/text_source_code"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="15dp"
+        android:layout_marginTop="40dp"
+        android:layout_marginEnd="10dp"
+        android:gravity="center"
+        android:text="项目源码"
+        android:textColor="#808080"
+        android:textSize="15sp"
+        android:textStyle="bold"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toEndOf="@id/icon_source_code"
+        app:layout_constraintTop_toBottomOf="@id/text_version"
+        tools:ignore="HardcodedText" />
+
+    <ImageView
+        android:id="@+id/icon_privacy_policy"
+        android:layout_width="26dp"
+        android:layout_height="26dp"
+        android:contentDescription="versionIcon"
+        android:src="@drawable/private_share_svgrepo_com"
+        app:layout_constraintBottom_toBottomOf="@id/text_privacy_policy"
+        app:layout_constraintEnd_toStartOf="@id/text_privacy_policy"
+        app:layout_constraintHorizontal_chainStyle="packed"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="@id/text_privacy_policy"
+        app:layout_constraintVertical_bias="0.0"
+        tools:ignore="HardcodedText" />
+
+    <TextView
+        android:id="@+id/text_privacy_policy"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="15dp"
+        android:layout_marginTop="15dp"
+        android:layout_marginEnd="10dp"
+        android:gravity="center"
+        android:text="隐私政策"
+        android:textColor="#808080"
+        android:textSize="15sp"
+        android:textStyle="bold"
+        app:layout_constraintBottom_toTopOf="@id/text_contact_us"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toEndOf="@id/icon_privacy_policy"
+        app:layout_constraintTop_toBottomOf="@id/text_source_code"
+        tools:ignore="HardcodedText" />
+
+    <ImageView
+        android:id="@+id/icon_contact_us"
+        android:layout_width="24dp"
+        android:layout_height="20dp"
+        android:contentDescription="versionIcon"
+        android:src="@drawable/contact_email_mail_svgrepo_com"
+        app:layout_constraintBottom_toBottomOf="@id/text_contact_us"
+        app:layout_constraintEnd_toStartOf="@id/text_contact_us"
+        app:layout_constraintHorizontal_chainStyle="packed"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="@id/text_contact_us"
+        app:layout_constraintVertical_bias="0.0"
+        app:tint="@color/dark_gray"
+        tools:ignore="HardcodedText" />
+
+    <TextView
+        android:id="@+id/text_contact_us"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="15dp"
+        android:layout_marginTop="15dp"
+        android:layout_marginEnd="10dp"
+        android:layout_marginBottom="30dp"
+        android:gravity="center"
+        android:text="联系我们"
+        android:textColor="#808080"
+        android:textSize="15sp"
+        android:textStyle="bold"
+        app:layout_constraintBottom_toTopOf="@id/separation"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toEndOf="@id/icon_contact_us"
+        app:layout_constraintTop_toBottomOf="@id/text_privacy_policy"
+        tools:ignore="HardcodedText" />
+
+    <View
+        android:id="@+id/separation"
+        android:layout_width="0dp"
+        android:layout_height="1dp"
+        android:background="@color/dark_gray"
+        android:elevation="0dp"
+        android:translationZ="0.1dp"
+        app:layout_constraintBottom_toTopOf="@id/text_copyright"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/text_contact_us"
+        app:layout_constraintWidth_percent="0.7" />
+
+    <TextView
+        android:id="@+id/text_copyright"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:gravity="center"
+        android:text="Copyright© 2025 DirectoWay\nAll rights reserved"
+        android:textColor="#808080"
+        android:textSize="11sp"
+        android:textStyle="bold"
+        app:layout_constraintTop_toBottomOf="@id/separation"
+        tools:ignore="HardcodedText" />
+</androidx.constraintlayout.widget.ConstraintLayout>

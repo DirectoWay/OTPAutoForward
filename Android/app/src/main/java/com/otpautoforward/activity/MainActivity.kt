@@ -45,6 +45,7 @@ import com.kongzue.dialogx.dialogs.WaitDialog
 import com.kongzue.dialogx.interfaces.OnBindView
 import com.kongzue.dialogx.util.TextInfo
 import com.kongzue.dialogxmaterialyou.style.MaterialYouStyle
+import com.otpautoforward.BuildConfig
 import com.otpautoforward.R
 import com.otpautoforward.databinding.ActivityMainBinding
 import com.otpautoforward.dataclass.AppConfig
@@ -146,6 +147,11 @@ class MainActivity : AppCompatActivity() {
     // 处理菜单栏逻辑
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         return when (item.itemId) {
+            R.id.action_about -> {
+                showAbout()
+                true
+            }
+
             R.id.action_feedback -> {
                 openFeedbackUrl()
                 true
@@ -274,6 +280,23 @@ class MainActivity : AppCompatActivity() {
                 Log.e(tag, "短信权限未获取")
                 false
             }
+            .show()
+    }
+
+    private fun showAbout() {
+        val aboutDialog = MessageDialog.build()
+        aboutDialog
+            .setCustomView(object : OnBindView<MessageDialog?>(R.layout.app_about) {
+                override fun onBind(dialog: MessageDialog?, v: View) {
+                    val currentVersion = v.findViewById<TextView>(R.id.text_version)
+                    val versionDesc = "v" + BuildConfig.VERSION_NAME + " | " + BuildConfig.VERSION_TAG
+                    currentVersion.text = versionDesc
+                }
+            })
+            .setTitle("关于")
+            .setOkButton("确定")
+            .setCancelButton("取消")
+            .setCancelable(false)
             .show()
     }
 
