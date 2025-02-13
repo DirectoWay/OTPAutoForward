@@ -20,6 +20,7 @@ sealed class AppConfig {
 
         val TestMessage = StringConfig("【测试短信】尾号为1234的用户您好, 987123 是您的验证码, 这是一条测试短信")
         val TestSender = StringConfig("测试员")
+        val EmailAddress = StringConfig("DirectoWay@163.com")
 
         /** 远程仓库中的 QA 数据 */
         val QAResource =

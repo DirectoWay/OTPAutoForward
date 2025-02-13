@@ -7,6 +7,8 @@ import android.animation.AnimatorSet
 import android.animation.ObjectAnimator
 import android.animation.ValueAnimator
 import android.annotation.SuppressLint
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -42,6 +44,7 @@ import androidx.lifecycle.lifecycleScope
 import com.google.android.material.snackbar.Snackbar
 import com.kongzue.dialogx.DialogX
 import com.kongzue.dialogx.dialogs.MessageDialog
+import com.kongzue.dialogx.dialogs.PopTip
 import com.kongzue.dialogx.dialogs.WaitDialog
 import com.kongzue.dialogx.interfaces.OnBindView
 import com.kongzue.dialogx.util.TextInfo
@@ -293,15 +296,20 @@ class MainActivity : AppCompatActivity() {
                     val versionDesc = "v" + BuildConfig.VERSION_NAME + " | " + BuildConfig.VERSION_TAG
                     currentVersion.text = versionDesc
 
-                    val sourceCode = v.findViewById<TextView>(R.id.text_source_code)
-                    sourceCode.setOnClickListener {
-                        openSourceCode()
-                    }
+                    v.findViewById<TextView>(R.id.text_source_code)
+                        .setOnClickListener {
+                            openSourceCode()
+                        }
 
-                    val privacyPolicy = v.findViewById<TextView>(R.id.text_privacy_policy)
-                    privacyPolicy.setOnClickListener {
-                        openPrivacyPolicy()
-                    }
+                    v.findViewById<TextView>(R.id.text_privacy_policy)
+                        .setOnClickListener {
+                            openPrivacyPolicy()
+                        }
+
+                    v.findViewById<TextView>(R.id.text_contact_us)
+                        .setOnClickListener {
+                            openEmail()
+                        }
                 }
             })
             .setTitle("关于")
@@ -351,6 +359,23 @@ class MainActivity : AppCompatActivity() {
             } ?: run {
                 Log.e(tag, "隐私政策获取失败")
             }
+        }
+    }
+
+    /** 跳转至邮箱页面 */
+    private fun openEmail() {
+        val emailIntent = Intent(Intent.ACTION_SENDTO).apply {
+            data = Uri.parse("mailto:${AppConfig.EmailAddress.value}")
+        }
+
+        if (emailIntent.resolveActivity(packageManager) != null) {
+            startActivity(emailIntent)
+        } else {
+            // 没有默认邮箱应用就复制联系地址进剪贴板
+            val clipboard: ClipboardManager = getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
+            val clip = ClipData.newPlainText("邮箱地址", AppConfig.EmailAddress.value)
+            clipboard.setPrimaryClip(clip)
+            PopTip.show(R.drawable.baseline_mail_outline_24, "联系邮箱已复制")
         }
     }
 
