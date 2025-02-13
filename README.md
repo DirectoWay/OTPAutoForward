@@ -1,5 +1,5 @@
 <div align=center>    
-<img src="https://github.com/user-attachments/assets/71588035-da47-4a89-b00b-c735afb2c4aa" alt="程序图标" width="15%"/> 
+<img src="https://github.com/user-attachments/assets/71588035-da47-4a89-b00b-c735afb2c4aa" alt="程序图标" width="50%"/> 
 
 # OTPAutoForward - 验证码无缝化转发
 </div>
@@ -69,6 +69,8 @@ Win 端与 App 端同处于一个局域网环境
 - https://github.com/lakent/fnsync
 
 - https://github.com/pppscn/SmsForwarder - 参考借鉴
+
+- https://github.com/tianma8023/XposedSmsCode - 参考借鉴
 
 - https://support-cn.samsung.com/App/DeveloperChina/home/index - UI原型: Samsung ADB
 
