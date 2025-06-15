@@ -34,7 +34,7 @@
       </Content>
       <None Remove="appsettings.json" />
       <Content Include="appsettings.json">
-        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       </Content>
       <None Update="Log4Net.config"> <CopyToOutputDirectory>Always</CopyToOutputDirectory> </None>
     </ItemGroup>

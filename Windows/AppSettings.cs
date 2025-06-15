@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 
 namespace OTPAutoForward
 {
@@ -34,6 +34,9 @@ namespace OTPAutoForward
 
         /** 项目的发布仓库源 (仅支持 GitHub 和 Gitee ) */
         public string ReleasesSource { get; set; }
+
+        /** 全屏状态下免打扰模式 */
+        public bool SilentMode { get; set; }
 
         /** 短信识别关键字 只有包含该关键字的短信才会被识别为验证码类型的短信 */
         public List<string> MessageKeyword { get; set; }
