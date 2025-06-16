@@ -21,14 +21,14 @@ namespace OTPAutoForward.ServiceHandler
     {
         private static readonly ILog Log = LogManager.GetLogger(typeof(UpdateHandler));
 
-        private static readonly string Repository = App.AppSettings.Repository;
+        private static readonly string Repository = App.AppSettings.CurrentValue.Repository;
 
-        private static readonly string RepositoryOwner = App.AppSettings.RepositoryOwner;
+        private static readonly string RepositoryOwner = App.AppSettings.CurrentValue.RepositoryOwner;
 
-        private static readonly string ReleasesSource = App.AppSettings.ReleasesSource;
+        private static readonly string ReleasesSource = App.AppSettings.CurrentValue.ReleasesSource;
 
         private static readonly string CurrentVersion =
-            App.AppSettings.CurrentVersion.ToLower().Replace("v", "").Replace("ver", "");
+            App.AppSettings.CurrentValue.CurrentVersion.ToLower().Replace("v", "").Replace("ver", "");
 
         private static string _latestVersion;
 

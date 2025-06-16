@@ -14,7 +14,7 @@ namespace OTPAutoForward.ServiceHandler
             {
                 Process.Start(new ProcessStartInfo
                 {
-                    FileName = App.AppSettings.FeedbackUrl, UseShellExecute = true
+                    FileName = App.AppSettings.CurrentValue.FeedbackUrl, UseShellExecute = true
                 });
             }
             catch (Exception ex)

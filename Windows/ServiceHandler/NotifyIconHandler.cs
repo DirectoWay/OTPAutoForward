@@ -23,7 +23,8 @@ namespace OTPAutoForward.ServiceHandler
 
         private NotifyIcon _notifyIcon;
 
-        private readonly string _appName = App.AppSettings.AppName;
+        private readonly string _appName = App.AppSettings.CurrentValue.AppName;
+        private static readonly bool SilentMode = App.AppSettings.CurrentValue.SilentMode;
         private readonly string _iconPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "sms.ico");
 
         public void Initialize()
@@ -70,6 +71,22 @@ namespace OTPAutoForward.ServiceHandler
                 }
             };
             contextMenu.Items.Add(autoStartItem);
+
+            var quietModeItem = new ToolStripMenuItem("全屏状态免打扰");
+            quietModeItem.CheckOnClick = true;
+            quietModeItem.Checked = SilentMode; // 默认勾选状态
+            quietModeItem.CheckedChanged += (sender, args) =>
+            {
+                if (quietModeItem.Checked)
+                {
+                    EnableSilentMode();
+                }
+                else
+                {
+                    DisableSilentMode();
+                }
+            };
+            contextMenu.Items.Add(quietModeItem);
 
             contextMenu.Items.Add(new ToolStripMenuItem("重置密钥",
                 IconChar.Key.ToBitmap(IconFont.Solid, 16, Color.Black),
@@ -207,8 +224,54 @@ namespace OTPAutoForward.ServiceHandler
             }
         }
 
+        /// <summary>
+        /// 全屏状态下免打扰模式是否生效, 当有应用处于全屏模式时, 不再弹出 Toast 弹窗
+        /// </summary>
+        /// <returns></returns>
+        private bool CheckSilentMode()
+        {
+            try
+            {
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"检查免打扰模式时发生异常: {ex.Message}");
+                Log.Error($"检查免打扰模式时发生异常: {ex.Message}");
+                return false;
+            }
+        }
+
+        private static void EnableSilentMode()
+        {
+            try
+            {
+                App.UpdateAppSettings(settings => { settings.SilentMode = true; });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"开启全屏免打扰时发生异常: {ex.Message}");
+                Log.Error($"开启全屏免打扰时发生异常: {ex.Message}");
+            }
+        }
+
+        private static void DisableSilentMode()
+        {
+            try
+            {
+                App.UpdateAppSettings(settings => { settings.SilentMode = false; });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"禁用全屏免打扰时发生异常: {ex.Message}");
+                Log.Error($"禁用全屏免打扰时发生异常: {ex.Message}");
+            }
+        }
+
         private static void ShowToastNotification(string message)
         {
+            var isUserInFullScreen = FullScreenHandler.IsUserInFullScreen();
+            Console.WriteLine("当前用户处于全屏状态?" + isUserInFullScreen);
             Application.Current.Dispatcher.Invoke(() =>
             {
                 var toastBuilder = new ToastContentBuilder()
@@ -246,7 +309,7 @@ namespace OTPAutoForward.ServiceHandler
             try
             {
                 // 读取配置文件中的短信关键字
-                var keywordList = App.AppSettings.MessageKeyword;
+                var keywordList = App.AppSettings.CurrentValue.MessageKeyword;
 
                 var keywords = keywordList?.ToHashSet() ?? new HashSet<string>();
                 if (keywords.Count == 0)

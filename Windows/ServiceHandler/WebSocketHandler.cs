@@ -24,7 +24,7 @@ namespace OTPAutoForward.ServiceHandler
         private readonly IPAddress _ipAddress = ConnectInfoHandler.GetLocalIP();
 
         /** WebSocket 服务的端口号 */
-        private readonly int _port = App.AppSettings.WebSocketPort;
+        private readonly int _port = App.AppSettings.CurrentValue.WebSocketPort;
 
         /** WebSocket 请求头自定义字段 */
         private const string WebSocketHeaderField = "X-OTPAutoForward-Auth";
@@ -201,7 +201,7 @@ namespace OTPAutoForward.ServiceHandler
 
                 var serverTimestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
                 var differenceInSeconds = Math.Abs(serverTimestamp - clientTimestamp); // 检查时间戳是否在超时时间以内
-                if (differenceInSeconds <= App.AppSettings.WebSocketVerifyTimeout)
+                if (differenceInSeconds <= App.AppSettings.CurrentValue.WebSocketVerifyTimeout)
                 {
                     return true;
                 }

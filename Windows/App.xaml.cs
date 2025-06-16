@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -10,6 +11,8 @@ using Autofac;
 using log4net;
 using log4net.Config;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Primitives;
+using Newtonsoft.Json;
 using OTPAutoForward.ServiceHandler;
 
 namespace OTPAutoForward
@@ -20,7 +23,10 @@ namespace OTPAutoForward
     public partial class App
     {
         private static IConfiguration Configuration { get; }
-        public static AppSettings AppSettings { get; private set; }
+        public static OptionsMonitor<AppSettings> AppSettings { get; private set; }
+
+        private static readonly string AppSettingsPath =
+            Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "appsettings.json");
 
         private static IContainer _container;
 
@@ -33,20 +39,17 @@ namespace OTPAutoForward
 
         static App()
         {
-            // 配置文件路径
             var builder = new ConfigurationBuilder()
-                .SetBasePath(AppDomain.CurrentDomain.BaseDirectory) // 设置基础路径为应用程序目录
-                .AddJsonFile(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "appsettings.json"), optional: false,
-                    reloadOnChange: true);
+                .SetBasePath(AppDomain.CurrentDomain.BaseDirectory)
+                .AddJsonFile(AppSettingsPath, optional: false, reloadOnChange: true);
 
             Configuration = builder.Build();
         }
 
         public App()
         {
-            // 绑定配置文件对象
-            var appSettingsSection = Configuration.GetSection("AppSettings");
-            AppSettings = appSettingsSection.Get<AppSettings>();
+            // 监听配置文件对象
+            AppSettings = new OptionsMonitor<AppSettings>(Configuration, "AppSettings");
         }
 
         /** 配置依赖注入容器 */
@@ -65,7 +68,7 @@ namespace OTPAutoForward
 
             CheckAdministrator();
 
-            OpenFirewallPort(AppSettings.WebSocketPort);
+            OpenFirewallPort(AppSettings.CurrentValue.WebSocketPort);
 
             // 配置依赖注入容器
             var builder = new ContainerBuilder();
@@ -80,9 +83,9 @@ namespace OTPAutoForward
                 _notifyIconHandler.Initialize();
                 KeyHandler.SetNotifyIconHandler(_notifyIconHandler);
 
-                if (!CheckWebSocketPort(AppSettings.WebSocketPort))
+                if (!CheckWebSocketPort(AppSettings.CurrentValue.WebSocketPort))
                 {
-                    MessageBox.Show($"启动失败，端口 {AppSettings.WebSocketPort} 已被占用！", "端口异常",
+                    MessageBox.Show($"启动失败，端口 {AppSettings.CurrentValue.WebSocketPort} 已被占用！", "端口异常",
                         MessageBoxButton.OK, MessageBoxImage.Error);
                     Shutdown();
                     return;
@@ -170,7 +173,7 @@ namespace OTPAutoForward
                     StartInfo = new ProcessStartInfo
                     {
                         FileName = "netsh",
-                        Arguments = $"advfirewall firewall show rule name=\"{AppSettings.AppName}\"",
+                        Arguments = $"advfirewall firewall show rule name=\"{AppSettings.CurrentValue.AppName}\"",
                         RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false,
                         CreateNoWindow = true
                     }
@@ -191,7 +194,7 @@ namespace OTPAutoForward
                     {
                         FileName = "netsh",
                         Arguments =
-                            $"advfirewall firewall add rule name=\"{AppSettings.AppName}\" dir=in action=allow protocol=TCP localport={port} profile=any",
+                            $"advfirewall firewall add rule name=\"{AppSettings.CurrentValue.AppName}\" dir=in action=allow protocol=TCP localport={port} profile=any",
                         RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false,
                         CreateNoWindow = true
                     }
@@ -258,5 +261,44 @@ namespace OTPAutoForward
                 return false;
             }
         }
+
+        /// <summary>
+        /// 更新配置文件
+        /// </summary>
+        /// <param name="updateAction"></param>
+        public static void UpdateAppSettings(Action<AppSettings> updateAction)
+        {
+            var currentSettings = AppSettings.CurrentValue;
+            updateAction(currentSettings);
+
+            var configJson = File.ReadAllText(AppSettingsPath);
+            var configDictionary = JsonConvert.DeserializeObject<Dictionary<string, object>>(configJson);
+
+            configDictionary["AppSettings"] = currentSettings;
+
+            var updatedJson = JsonConvert.SerializeObject(configDictionary, Formatting.Indented);
+            File.WriteAllText(AppSettingsPath, updatedJson);
+        }
+    }
+
+    /// <summary>
+    /// 监听配置文件的修改
+    /// </summary>
+    /// <typeparam name="T"></typeparam>
+    public class OptionsMonitor<T> where T : class, new()
+    {
+        public OptionsMonitor(IConfiguration configuration, string sectionName)
+        {
+            var configuration1 = configuration;
+            var sectionName1 = sectionName;
+            CurrentValue = configuration1.GetSection(sectionName1).Get<T>() ?? new T();
+
+            ChangeToken.OnChange(
+                () => configuration1.GetReloadToken(),
+                () => CurrentValue = configuration1.GetSection(sectionName1).Get<T>() ?? new T()
+            );
+        }
+
+        public T CurrentValue { get; private set; }
     }
 }
