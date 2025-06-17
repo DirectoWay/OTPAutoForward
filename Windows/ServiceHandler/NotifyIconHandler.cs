@@ -6,6 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Windows.Forms;
+using Windows.UI.Notifications;
 using Microsoft.Win32;
 using FontAwesome.Sharp;
 using log4net;
@@ -271,7 +272,7 @@ namespace OTPAutoForward.ServiceHandler
         private static void ShowToastNotification(string message)
         {
             var isUserInFullScreen = FullScreenHandler.IsUserInFullScreen();
-            Console.WriteLine("当前用户处于全屏状态?" + isUserInFullScreen);
+
             Application.Current.Dispatcher.Invoke(() =>
             {
                 var toastBuilder = new ToastContentBuilder()
@@ -298,6 +299,19 @@ namespace OTPAutoForward.ServiceHandler
                 toastBuilder.AddArgument("action", "copy")
                     .AddArgument("content", message)
                     .AddArgument("source", "WebSocketMessage"); // 给 Toast 弹窗添加来源标识
+
+                if (isUserInFullScreen)
+                {
+                    var toastContent = toastBuilder.GetToastContent();
+
+                    var toast = new ToastNotification(toastContent.GetXml())
+                    {
+                        SuppressPopup = true // 有全屏应用运行时, 静默 Toast 弹窗
+                    };
+
+                    ToastNotificationManagerCompat.CreateToastNotifier().Show(toast);
+                    return;
+                }
 
                 toastBuilder.Show();
             });
