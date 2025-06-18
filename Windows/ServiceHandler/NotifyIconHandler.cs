@@ -225,24 +225,6 @@ namespace OTPAutoForward.ServiceHandler
             }
         }
 
-        /// <summary>
-        /// 全屏状态下免打扰模式是否生效, 当有应用处于全屏模式时, 不再弹出 Toast 弹窗
-        /// </summary>
-        /// <returns></returns>
-        private bool CheckSilentMode()
-        {
-            try
-            {
-                return true;
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"检查免打扰模式时发生异常: {ex.Message}");
-                Log.Error($"检查免打扰模式时发生异常: {ex.Message}");
-                return false;
-            }
-        }
-
         private static void EnableSilentMode()
         {
             try
@@ -272,6 +254,7 @@ namespace OTPAutoForward.ServiceHandler
         private static void ShowToastNotification(string message)
         {
             var isUserInFullScreen = FullScreenHandler.IsUserInFullScreen();
+            var isSilentMode = App.AppSettings.CurrentValue.SilentMode;
 
             Application.Current.Dispatcher.Invoke(() =>
             {
@@ -300,7 +283,7 @@ namespace OTPAutoForward.ServiceHandler
                     .AddArgument("content", message)
                     .AddArgument("source", "WebSocketMessage"); // 给 Toast 弹窗添加来源标识
 
-                if (isUserInFullScreen)
+                if (isSilentMode && isUserInFullScreen)
                 {
                     var toastContent = toastBuilder.GetToastContent();
 
