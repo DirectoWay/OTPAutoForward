@@ -104,7 +104,7 @@ class MainFragment : Fragment() {
         qrCodeLauncher =
             registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
                 if (result.resultCode == Activity.RESULT_OK) {
-                    val qrData = result.data?.getStringExtra("SCAN_RESULT")
+                    val qrData = result.data?.getStringExtra("SCAN_RESULT") ?: "NULL_QRDATA"
                     handleQRCodeResult(qrData)
                 } else {
                     Log.d(tagF, "相机调用失败或取消")
@@ -284,7 +284,16 @@ class MainFragment : Fragment() {
             }
         }
 
-    /** 处理扫码结果 */
+
+    /**
+     * 处理扫码结果 ( Win 端完整信息 )
+     * @param qrData 扫码数据（可能为 null）
+     */
+    @Deprecated(
+        message = "不再使用复杂二维码的配对方式，改用 handleQRCodeResult(qrData: String)",
+        level = DeprecationLevel.WARNING // 默认是 WARNING，可省略
+    )
+    @JvmName("handleQRCodeResult_Deprecated")
     private fun handleQRCodeResult(qrData: String?) {
         try {
             val pairingInfo = pairHandler.analyzeQRCode(qrData)
@@ -294,6 +303,17 @@ class MainFragment : Fragment() {
             settingsViewModel.refreshPairedDevice.value = Unit
 
             Toast.makeText(requireContext(), "设备配对成功", Toast.LENGTH_LONG).show()
+        } catch (e: Exception) {
+            Toast.makeText(requireContext(), "配对失败", Toast.LENGTH_LONG).show()
+            Log.e(tagF, "二维码配对发生异常: $e")
+        }
+    }
+
+    /** 处理扫码结果 (二维码中包含 Win 端的 IP 地址, 实则通过 IP 配对)*/
+    private fun handleQRCodeResult(qrData: String) {
+        try {
+            val pairingInfo = pairHandler.analyzeQRCode(qrData);
+            pairByIpAddress(pairingInfo)
         } catch (e: Exception) {
             Toast.makeText(requireContext(), "配对失败", Toast.LENGTH_LONG).show()
             Log.e(tagF, "二维码配对发生异常: $e")

@@ -38,6 +38,18 @@ class PairHandler {
         }
     }
 
+    fun analyzeQRCode(qrData: String): String {
+        try {
+            if (qrData.isBlank()) throw Exception("二维码信息为空")
+
+            // 解密二维码中的配对信息 (解密完后就是 IPv4 的地址)
+            return keyHandler.decryptString(qrData) ?: throw Exception("二维码解密失败")
+        } catch (ex: Exception) {
+            Log.d(tag, "解析二维码时发生异常: $ex")
+            throw ex
+        }
+    }
+
     /** 解密和验证 Win 端通过 WebSocket 发来的配对信息 */
     fun analyzePairInfo(message: String): PairedDeviceInfo? {
         try {
