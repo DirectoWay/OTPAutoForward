@@ -82,6 +82,7 @@ class UpdateHandler {
                 showToastNotification(
                     context, "当前版本已是最新版\n当前版本: $currentVersion"
                 )
+                return
             }
 
             _latestVersion = latestVersion
