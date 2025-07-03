@@ -6,6 +6,8 @@ import android.net.LinkProperties
 import android.net.Network
 import android.net.NetworkCapabilities
 import android.util.Log
+import com.google.gson.Gson
+import com.kongzue.dialogx.impl.ActivityLifecycleImpl.getApplicationContext
 import com.otpautoforward.dataclass.PairedDeviceInfo
 import com.otpautoforward.dataclass.SettingKey
 import kotlinx.coroutines.Dispatchers
@@ -18,9 +20,13 @@ import org.json.JSONException
 import org.json.JSONObject
 import java.net.Inet4Address
 import java.net.InetSocketAddress
-import java.net.NetworkInterface
 import java.net.Socket
-import java.net.SocketException
+import androidx.core.content.edit
+import com.otpautoforward.dataclass.AppConfig
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.channelFlow
+
+private const val NETWORKPREFIX = "networkPrefix"
 
 /** 通用工具类 */
 class GlobalHandler {
@@ -54,9 +60,8 @@ class GlobalHandler {
         return devices
     }
 
-    suspend fun getOnlineDevices(targetPort: Int): List<String> {
+    fun getOnlineDevices(targetPort: Int): Flow<String> = channelFlow {
         val localNetworkPrefix = getLocalNetworkPrefix()
-        val devices = mutableListOf<String>()
 
         Log.d(tag, "开始扫描局域网设备...")
         val startTime = System.currentTimeMillis()
@@ -69,11 +74,9 @@ class GlobalHandler {
                     Socket().use { socket ->
                         val address = InetSocketAddress(ip, targetPort)
                         socket.connect(address, 200) // 连接探测的超时时间
-                        synchronized(devices) {
-                            val websocketUrl = "ws://$ip:$targetPort"
-                            devices.add(websocketUrl)
-                            Log.d(tag, "目标设备在线: $websocketUrl")
-                        }
+                        val websocketUrl = "ws://$ip:$targetPort"
+                        trySend(websocketUrl)
+                        Log.d(tag, "目标设备在线: $websocketUrl")
                     }
                 }
             } catch (e: TimeoutCancellationException) {
@@ -84,36 +87,43 @@ class GlobalHandler {
         }
 
         coroutineScope {
-            ipBatches.forEach { batch ->
-                batch.map { i ->
-                    async(Dispatchers.IO) {
-                        val ip = "$localNetworkPrefix.$i"
-                        scanIp(ip)
+            localNetworkPrefix.map { prefix ->
+                async(Dispatchers.IO)
+                {
+                    Log.d(tag, "扫描设备: $prefix.x")
+                    ipBatches.forEach { batch ->
+                        batch.map { i ->
+                            async(Dispatchers.IO) {
+                                val ip = "$prefix.$i"
+                                scanIp(ip)
+                            }
+                        }.awaitAll()
                     }
-                }.awaitAll()
-            }
+                    Log.d(tag, "完成设备扫描: $prefix.x")
+                }
+            }.awaitAll()
         }
 
         val endTime = System.currentTimeMillis()
-        Log.d(tag, "局域网设备扫描结束，在线设备总数: ${devices.size}")
         Log.d(tag, "局域网设备扫描耗时: ${endTime - startTime} ms")
-
-        return devices
     }
 
     /** 获取局域网 IP 的前缀 */
-    private fun getLocalNetworkPrefix(): String? {
-        return try {
-            NetworkInterface.getNetworkInterfaces().asSequence()
-                .flatMap { it.inetAddresses.asSequence() }        // 展开 IP 地址
-                .filterIsInstance<Inet4Address>()                 // 筛选 IPv4 地址
-                .firstOrNull { !it.isLoopbackAddress }            // 找到第一个非回环地址
-                ?.hostAddress                                     // 提取 IP 地址
-                ?.substringBeforeLast('.')                 // 提取前缀
-        } catch (e: SocketException) {
-            Log.e(tag, "获取局域网 IP 前缀失败", e)
-            null
+    private fun getLocalNetworkPrefix(): List<String> {
+        val sharedPreferences = getApplicationContext().getSharedPreferences(
+            SettingKey.LocalNetworkPrefixes.key, Context.MODE_PRIVATE)
+
+        val savedNetworkPrefix = sharedPreferences.getString(NETWORKPREFIX, null)
+        if (savedNetworkPrefix != null) {
+            return Gson().fromJson(savedNetworkPrefix, Array<String>::class.java).toList()
         }
+
+        // 获取不到 IP 前缀的时候, 使用默认值
+        val defaultNetworkPrefixList = AppConfig.NetWorkPrefixList.value
+        sharedPreferences.edit {
+            putString(NETWORKPREFIX, Gson().toJson(defaultNetworkPrefixList))
+        }
+        return defaultNetworkPrefixList
     }
 
     /** 记录已经匹配成功过的设备 */

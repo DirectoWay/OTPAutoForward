@@ -24,5 +24,8 @@ enum class SettingKey(val key: String) {
     UIColor("UIColor"),
 
     /** 当前的副系配色 */
-    SubColor("SubColor")
+    SubColor("SubColor"),
+
+    /** 局域网网络前缀 */
+    LocalNetworkPrefixes("LocalNetworkPrefixes")
 }

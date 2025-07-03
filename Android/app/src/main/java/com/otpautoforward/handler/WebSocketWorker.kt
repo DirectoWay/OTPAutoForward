@@ -12,9 +12,13 @@ import androidx.work.WorkerParameters
 import com.otpautoforward.dataclass.WebSocketEvent
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.joinAll
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -94,23 +98,45 @@ class WebSocketWorker(context: Context, workerParams: WorkerParameters) :
         val webSocketPath = inputData.getString(KEY_WEBSOCKET)
 
         return try {
-            val webSocketInfo = mutableListOf<String>()
-            if (webSocketPath != null) {
-                webSocketInfo.add(webSocketPath)
-            } else {
-                webSocketInfo.addAll(globalHandler.getOnlineDevices(WebSocketPort))
-            }
-
             if (message == null) {
                 Log.e(tag, "WorkManager 获取 WebSocket 待发消息时异常")
                 return Result.failure()
             }
-            if (webSocketInfo.isEmpty()) {
+
+            message = keyHandler.encryptString(message) // 加密信息内容
+            var hasConnectedDevice = false
+
+            if (webSocketPath != null) {
+                connectWebSocket(listOf(webSocketPath), message)
+                hasConnectedDevice = true
+            } else { // 没有指定具体的 WebSocket 地址时主动探查局域网中可能在线的设备
+                coroutineScope {
+                    val connectionJobs = mutableListOf<Job>()
+
+                    globalHandler.getOnlineDevices(WebSocketPort).collect { deviceUrl ->
+                        Log.d(tag, "发现在线设备: $deviceUrl")
+
+                        val job = launch {
+                            try {
+                                connectWebSocket(listOf(deviceUrl), message)
+                                hasConnectedDevice = true
+                                Log.d(tag, "成功连接设备: $deviceUrl")
+                            } catch (e: Exception) {
+                                Log.e(tag, "连接设备失败: $deviceUrl", e)
+                            }
+                        }
+                        connectionJobs.add(job)
+                    }
+
+                    connectionJobs.joinAll()
+                }
+            }
+
+            if (!hasConnectedDevice) {
                 Log.e(tag, "该局域网中暂无在线设备")
                 return Result.failure()
             }
-            message = keyHandler.encryptString(message) // 加密信息内容
-            connectWebSocket(webSocketInfo, message)
+
             Result.success()
         } catch (e: TimeoutCancellationException) {
             // 处理超时情况

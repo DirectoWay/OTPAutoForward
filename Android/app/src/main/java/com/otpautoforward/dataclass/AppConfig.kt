@@ -7,6 +7,7 @@ package com.otpautoforward.dataclass
  */
 sealed class AppConfig {
     data class StringConfig(val value: String) : AppConfig()
+    data class ListConfig(val value: List<String>) : AppConfig()
 
     companion object {
         val ReleasesSource = StringConfig("Gitee")
@@ -30,5 +31,7 @@ sealed class AppConfig {
             StringConfig("https://gitee.com/DirectoWay/OTPAutoForward/raw/net472/Android/app/src/main/assets/privacyPolicy.json")
 
         val FeedBackUrl = StringConfig("https://shimo.im/forms/25q5X4Wl48fWJQ3D/fill")
+
+        val NetWorkPrefixList = ListConfig(listOf("192.168.0", "192.168.1", "192.168.2"))
     }
 }
