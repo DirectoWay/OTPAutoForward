@@ -2,7 +2,7 @@
 agp = "8.6.0"
 colorpickerview = "2.3.0"
 coreVersion = "3.4.1"
-dialogx = "0.0.50.beta30"
+dialogx = "0.0.50.beta37"
 eventbus = "3.3.1"
 gson = "2.10.1"
 kotlin = "1.9.24"
