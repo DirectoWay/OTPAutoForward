@@ -27,5 +27,8 @@ enum class SettingKey(val key: String) {
     SubColor("SubColor"),
 
     /** 局域网网络前缀 */
-    LocalNetworkPrefixes("LocalNetworkPrefixes")
+    LocalNetworkPrefixes("LocalNetworkPrefixes"),
+
+    /** 测试用消息的内容 */
+    TestMessage("TestMassage")
 }

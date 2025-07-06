@@ -11,6 +11,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.net.Uri
@@ -21,7 +22,9 @@ import android.os.VibrationEffect
 import android.os.Vibrator
 import android.provider.Settings
 import android.text.Html
+import android.text.InputType
 import android.util.Log
+import android.view.Gravity
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
@@ -38,15 +41,19 @@ import androidx.appcompat.widget.Toolbar
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.ContextCompat.getSystemService
+import androidx.core.content.edit
 import androidx.core.graphics.drawable.DrawableCompat
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.snackbar.Snackbar
 import com.kongzue.dialogx.DialogX
+import com.kongzue.dialogx.dialogs.InputDialog
 import com.kongzue.dialogx.dialogs.MessageDialog
 import com.kongzue.dialogx.dialogs.PopTip
 import com.kongzue.dialogx.dialogs.WaitDialog
 import com.kongzue.dialogx.interfaces.OnBindView
+import com.kongzue.dialogx.style.MaterialStyle
+import com.kongzue.dialogx.util.InputInfo
 import com.kongzue.dialogx.util.TextInfo
 import com.kongzue.dialogxmaterialyou.style.MaterialYouStyle
 import com.otpautoforward.BuildConfig
@@ -64,6 +71,7 @@ import com.skydoves.colorpickerview.sliders.BrightnessSlideBar
 import kotlinx.coroutines.launch
 
 private const val tag = "OTPAutoForward"
+private const val TESTMESSAGE = "testMessage"
 
 class MainActivity : AppCompatActivity() {
     // 用于获取 MainActivity 的实例
@@ -74,6 +82,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private lateinit var testMessagePreferences: SharedPreferences
     private lateinit var binding: ActivityMainBinding
     private lateinit var batteryOptiLauncher: ActivityResultLauncher<Intent>
     private val smsPermissionCode = 100
@@ -102,6 +111,8 @@ class MainActivity : AppCompatActivity() {
         settingsViewModel.uiColor.observe(this@MainActivity) { newColor ->
             DialogX.okButtonTextInfo.fontColor = newColor
         }
+
+        testMessagePreferences = getSharedPreferences(TESTMESSAGE, MODE_PRIVATE)
 
         // 设置左上角导航图标的偏移位置
         toolbar.post {
@@ -181,6 +192,11 @@ class MainActivity : AppCompatActivity() {
 
             R.id.action_changeUIColor -> {
                 showColorPicker()
+                true
+            }
+
+            R.id.action_changeTestMessage -> {
+                changeTestMessage()
                 true
             }
 
@@ -505,7 +521,7 @@ class MainActivity : AppCompatActivity() {
     /** 往 Win 端发送测试用的短信 */
     private fun sendTestSMS() {
         val intent = Intent("com.OTPAutoForward.TEST_SMS_RECEIVED")
-        intent.putExtra("extra_test_sms", "${AppConfig.TestMessage.value}\n发送者：${AppConfig.TestSender.value}")
+        intent.putExtra("extra_test_sms", "${getTestMessage()}\n发送者：${AppConfig.TestSender.value}")
         intent.setPackage(this@MainActivity.packageName)
         sendOrderedBroadcast(intent, null)
     }
@@ -591,6 +607,47 @@ class MainActivity : AppCompatActivity() {
         val subAlpha = (alpha / 3).coerceIn(0, 255)
 
         return "#%02X%02X%02X%02X".format(subAlpha, red, green, blue)
+    }
+    
+    private fun changeTestMessage() {
+        val textInfo = TextInfo()
+        textInfo.gravity = Gravity.CENTER
+
+        val inputInfo = InputInfo()
+        inputInfo.textInfo = textInfo
+        inputInfo.isMultipleLines = true
+        inputInfo.cursorColor = settingsViewModel.getUIColor()
+        inputInfo.bottomLineColor = Color.BLACK
+        inputInfo.inputType = InputType.TYPE_CLASS_TEXT
+
+        val inputDialog = InputDialog.build()
+        inputDialog
+            .setInputInfo(inputInfo)
+            .setInputText(getTestMessage())
+            .setStyle(MaterialStyle.style())
+            .setRadius(75F)
+            .setCancelable(false)
+            .setTitle("更改测试消息")
+            .setMessage("请输入用于测试的消息内容")
+            .setOkButton("确定")
+            { _, _ ->
+                testMessagePreferences.edit { putString(TESTMESSAGE, inputDialog.getInputText()) }
+                false
+            }
+            .setCancelButton("取消")
+            .show()
+    }
+
+    private fun getTestMessage(): String {
+        val testMessage = testMessagePreferences.getString(TESTMESSAGE, null)
+        if (testMessage != null) {
+            return testMessage
+        }
+
+        // 填充默认的测试消息内容
+        val defaultTestMessage = AppConfig.TestMessage.value
+        testMessagePreferences.edit { putString(TESTMESSAGE, defaultTestMessage) }
+        return defaultTestMessage
     }
 
     /** 全局的 DialogX 配置 */
