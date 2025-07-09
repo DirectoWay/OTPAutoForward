@@ -27,6 +27,8 @@ class SmsReceiver : BroadcastReceiver() {
             return
         }
 
+        Log.d(tag, "已收到短信广播：${intent.action}")
+
         if (!isWifiConnected()) {
             Log.d(tag, "当前 WiFi 不可用, 不再转发短信")
             return
