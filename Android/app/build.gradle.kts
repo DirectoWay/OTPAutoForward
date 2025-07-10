@@ -14,7 +14,7 @@ android {
         minSdk = 29
         targetSdk = 35
         versionCode = 1
-        versionName = "0.5.2"
+        versionName = "0.5.7"
         buildConfigField("String", "VERSION_TAG", "\"RC\"")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -71,6 +71,7 @@ android {
         implementation(libs.dialogx.style)
         implementation(libs.eventbus)
         implementation(libs.colorpickerview)
+        implementation(libs.androidBleLib)
         testImplementation(libs.junit.junit)
         androidTestImplementation(libs.androidx.junit)
         androidTestImplementation(libs.androidx.espresso.core)
