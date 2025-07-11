@@ -21,6 +21,7 @@ squareupOkhttp = "4.9.3"
 workRuntimeKtxVersion = "2.8.1"
 zxingAndroidEmbeddedVersion = "4.3.0"
 junitJunit = "4.12"
+androidBleLib = "2.10.2"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -44,6 +45,7 @@ squareup-okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "squar
 work-runtime-ktx = { module = "androidx.work:work-runtime-ktx", version.ref = "workRuntimeKtxVersion" }
 zxing-android-embedded-v430 = { module = "com.journeyapps:zxing-android-embedded", version.ref = "zxingAndroidEmbeddedVersion" }
 junit-junit = { group = "junit", name = "junit", version.ref = "junitJunit" }
+androidBleLib = { group = "no.nordicsemi.android", name = "ble", version.ref = "androidBleLib" }
 
 [plugins]
 
