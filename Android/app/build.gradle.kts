@@ -72,6 +72,7 @@ android {
         implementation(libs.eventbus)
         implementation(libs.colorpickerview)
         implementation(libs.androidBleLib)
+        implementation(libs.androidSppLib)
         testImplementation(libs.junit.junit)
         androidTestImplementation(libs.androidx.junit)
         androidTestImplementation(libs.androidx.espresso.core)

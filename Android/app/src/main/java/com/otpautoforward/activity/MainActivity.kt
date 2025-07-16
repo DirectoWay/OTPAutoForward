@@ -152,6 +152,10 @@ class MainActivity : AppCompatActivity() {
 
         // 检查并请求短信权限
         checkAndRequestSmsPermission()
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            checkBluetoothPermission()
+        }
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
@@ -301,6 +305,16 @@ class MainActivity : AppCompatActivity() {
                 false
             }
             .show()
+    }
+
+    @RequiresApi(Build.VERSION_CODES.S)
+    private fun checkBluetoothPermission() {
+        val REQUEST_CODE_BLUETOOTH = 1001
+        val permissions = arrayOf(
+            Manifest.permission.BLUETOOTH_CONNECT,
+            Manifest.permission.BLUETOOTH_SCAN
+        )
+        ActivityCompat.requestPermissions(this, permissions, REQUEST_CODE_BLUETOOTH)
     }
 
     private fun showAbout() {

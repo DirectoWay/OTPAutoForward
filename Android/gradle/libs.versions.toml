@@ -22,6 +22,7 @@ workRuntimeKtxVersion = "2.8.1"
 zxingAndroidEmbeddedVersion = "4.3.0"
 junitJunit = "4.12"
 androidBleLib = "2.10.2"
+androidSppLib = "1.0.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -46,6 +47,7 @@ work-runtime-ktx = { module = "androidx.work:work-runtime-ktx", version.ref = "w
 zxing-android-embedded-v430 = { module = "com.journeyapps:zxing-android-embedded", version.ref = "zxingAndroidEmbeddedVersion" }
 junit-junit = { group = "junit", name = "junit", version.ref = "junitJunit" }
 androidBleLib = { group = "no.nordicsemi.android", name = "ble", version.ref = "androidBleLib" }
+androidSppLib = { module = "com.akexorcist:bluetoothspp", version.ref = "androidSppLib" }
 
 [plugins]
 
