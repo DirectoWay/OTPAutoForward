@@ -266,13 +266,53 @@
                             android:id="@+id/text_forward_onlyOTP"
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
-                            android:layout_marginBottom="20dp"
                             android:text="关闭后将转发非验证码短信"
                             android:textSize="13sp"
-                            app:layout_constraintBottom_toBottomOf="parent"
+                            app:layout_constraintBottom_toTopOf="@id/switch_bluetoothPriority"
                             app:layout_constraintEnd_toEndOf="@id/switch_forward_onlyOTP"
                             app:layout_constraintStart_toStartOf="@id/switch_forward_onlyOTP"
                             app:layout_constraintTop_toBottomOf="@id/switch_forward_onlyOTP"
+                            tools:ignore="HardcodedText" />
+
+                        <ImageView
+                            android:id="@+id/icon_bluetoothPriority"
+                            android:layout_width="30dp"
+                            android:layout_height="30dp"
+                            android:layout_marginStart="30dp"
+                            android:src="@drawable/outline_bluetooth_24"
+                            app:layout_constraintBottom_toBottomOf="@id/text_bluetoothPriority"
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintTop_toTopOf="@id/switch_bluetoothPriority" />
+
+                        <com.google.android.material.switchmaterial.SwitchMaterial
+                            android:id="@+id/switch_bluetoothPriority"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="25dp"
+                            android:layout_marginTop="15dp"
+                            android:layout_marginEnd="25dp"
+                            android:checked="true"
+                            android:text="优先使用蓝牙模式"
+                            android:textSize="18sp"
+                            app:layout_constraintBottom_toTopOf="@id/text_bluetoothPriority"
+                            app:layout_constraintEnd_toEndOf="parent"
+                            app:layout_constraintStart_toEndOf="@+id/icon_bluetoothPriority"
+                            app:layout_constraintTop_toBottomOf="@id/text_forward_onlyOTP"
+                            app:thumbTint="@{settingsViewModel.uiColor}"
+                            app:trackTint="@{settingsViewModel.subColor}"
+                            tools:ignore="HardcodedText" />
+
+                        <TextView
+                            android:id="@+id/text_bluetoothPriority"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginBottom="20dp"
+                            android:text="无需网络也可转发短信, 但需 Windows 端一并开启蓝牙优先模式且保持蓝牙连接才可生效"
+                            android:textSize="13sp"
+                            app:layout_constraintBottom_toBottomOf="parent"
+                            app:layout_constraintEnd_toEndOf="@id/switch_bluetoothPriority"
+                            app:layout_constraintStart_toStartOf="@id/switch_bluetoothPriority"
+                            app:layout_constraintTop_toBottomOf="@id/switch_bluetoothPriority"
                             tools:ignore="HardcodedText" />
 
                     </androidx.constraintlayout.widget.ConstraintLayout>

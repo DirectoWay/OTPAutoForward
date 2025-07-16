@@ -17,6 +17,9 @@ enum class SettingKey(val key: String) {
     /** "仅转发验证码" 开关的状态 */
     ForwardOnlyOTP("forwardOnlyOTP"),
 
+    /** "蓝牙优先模式" 开关的状态 */
+    BluetoothPriorityMode("BluetoothPriorityMode"),
+
     /** 已配对的设备 */
     PairedDevices("PairedDevices"),
 

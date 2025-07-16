@@ -173,6 +173,7 @@ class MainFragment : Fragment() {
             binding.switchForwardScreenoff.isChecked = settings[SettingKey.ScreenLocked.key] ?: true
             binding.switchSyncDoNotDisturb.isChecked = settings[SettingKey.SyncDoNotDistribute.key] ?: true
             binding.switchForwardOnlyOTP.isChecked = settings[SettingKey.ForwardOnlyOTP.key] ?: true
+            binding.switchBluetoothPriority.isChecked = settings[SettingKey.BluetoothPriorityMode.key] ?: true
         }
 
         // 观察 UI 颜色的变化
@@ -413,6 +414,9 @@ class MainFragment : Fragment() {
         binding.switchForwardOnlyOTP.setOnCheckedChangeListener { _, isChecked ->
             settingsViewModel.updateSetting(SettingKey.ForwardOnlyOTP.key, isChecked)
         }
+        binding.switchBluetoothPriority.setOnCheckedChangeListener { _, isChecked ->
+            settingsViewModel.updateSetting(SettingKey.BluetoothPriorityMode.key, isChecked)
+        }
     }
 
     /** 图标切换时的动画 */
@@ -537,6 +541,13 @@ class MainFragment : Fragment() {
                 )
             }
 
+            SettingKey.BluetoothPriorityMode.key -> {
+                animateIconChange(
+                    binding.iconBluetoothPriority,
+                    if (currentState) R.drawable.outline_bluetooth_24 else R.drawable.outline_connected_tv_24
+                )
+            }
+
             else -> {}
         }
     }
@@ -548,6 +559,7 @@ class MainFragment : Fragment() {
             SettingKey.ScreenLocked.key -> binding.iconForwardScreenoff.setColorFilter(color)
             SettingKey.SyncDoNotDistribute.key -> binding.iconSyncDoNotDisturb.setColorFilter(color)
             SettingKey.ForwardOnlyOTP.key -> binding.iconForwardOnlyOTP.setColorFilter(color)
+            SettingKey.BluetoothPriorityMode.key -> binding.iconBluetoothPriority.setColorFilter(color)
         }
     }
 

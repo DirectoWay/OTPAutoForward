@@ -122,6 +122,10 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             SettingKey.ForwardOnlyOTP.key to sharedPreferences.getBoolean(
                 SettingKey.ForwardOnlyOTP.key,
                 true
+            ),
+            SettingKey.BluetoothPriorityMode.key to sharedPreferences.getBoolean(
+                SettingKey.BluetoothPriorityMode.key,
+                true
             )
         )
         _settings.value = map
