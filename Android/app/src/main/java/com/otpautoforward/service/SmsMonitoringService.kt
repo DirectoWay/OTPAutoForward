@@ -1,5 +1,6 @@
 package com.otpautoforward.service
 
+import android.Manifest
 import android.app.KeyguardManager
 import android.app.NotificationManager
 import android.content.BroadcastReceiver
@@ -10,14 +11,18 @@ import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.telephony.SmsMessage
 import android.util.Log
+import androidx.annotation.RequiresPermission
 import com.otpautoforward.handler.WebSocketWorker
 import com.otpautoforward.dataclass.SettingKey
+import com.otpautoforward.handler.BluetoothWorker
 
 @Suppress("DEPRECATION")
 class SmsReceiver : BroadcastReceiver() {
     private lateinit var appContext: Context
     private val tag = "SmsReceiver"
+    private var bluetoothMode = true
 
+    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     override fun onReceive(context: Context, intent: Intent) {
         appContext = context.applicationContext // 获取应用上下文
         if (intent.action != "android.provider.Telephony.SMS_RECEIVED" &&
@@ -29,11 +34,6 @@ class SmsReceiver : BroadcastReceiver() {
 
         Log.d(tag, "已收到短信广播：${intent.action}")
 
-        if (!isWifiConnected()) {
-            Log.d(tag, "当前 WiFi 不可用, 不再转发短信")
-            return
-        }
-
         // 读取 settings 配置
         val sharedPreferences =
             appContext.getSharedPreferences(
@@ -43,6 +43,13 @@ class SmsReceiver : BroadcastReceiver() {
 
         // 关闭 "短信转发" 后, 不再处理任何后续逻辑
         if (!sharedPreferences.getBoolean(SettingKey.SmsEnabled.key, true)) {
+            return
+        }
+
+        bluetoothMode = sharedPreferences.getBoolean(SettingKey.BluetoothPriorityMode.key, true)
+
+        if (!isWifiConnected() && !bluetoothMode) {
+            Log.d(tag, "当前 WiFi 不可用, 且未开启蓝牙优先模式, 不再转发短信")
             return
         }
 
@@ -73,6 +80,7 @@ class SmsReceiver : BroadcastReceiver() {
         }
     }
 
+    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     private fun handleSms(intent: Intent, sharedPreferences: SharedPreferences) {
         val bundle = intent.extras
         if (bundle != null) {
@@ -91,8 +99,14 @@ class SmsReceiver : BroadcastReceiver() {
                         }
                     }
 
+                    // 按模式选择是蓝牙发送还是 Websocket 发送
+                    if (bluetoothMode) {
+                        BluetoothWorker.sendBluetoothMessage(appContext, "$messageBody\n发送者：$sender")
+                        Log.d(tag, "已通过蓝牙模式转发短信：$messageBody 发送者：$sender")
+                        return
+                    }
                     WebSocketWorker.sendWebSocketMessage(appContext, "$messageBody\n发送者：$sender")
-                    Log.d(tag, "已转发短信：$messageBody 发送者：$sender")
+                    Log.d(tag, "已通过 Websocket 模式转发短信：$messageBody 发送者：$sender")
                 }
             } catch (e: Exception) {
                 Log.e(tag, "解析短信pdus数据时发生异常:", e)
@@ -106,9 +120,17 @@ class SmsReceiver : BroadcastReceiver() {
         }
     }
 
+    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     private fun handleTestSms(intent: Intent) {
         val extraValue = intent.getStringExtra("extra_test_sms")
+        if (bluetoothMode) {
+            BluetoothWorker.sendBluetoothMessage(appContext, "$extraValue")
+            Log.d(tag, "已通过蓝牙模式发送测试消息")
+            return
+        }
+
         WebSocketWorker.sendWebSocketMessage(appContext, "$extraValue")
+        Log.d(tag, "已通过 Websocket 模式发送测试消息")
     }
 
     /** 判断当前是否处于 WiFi 状态 */

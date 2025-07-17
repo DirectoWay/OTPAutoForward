@@ -35,6 +35,8 @@ namespace OTPAutoForward
 
         private WebSocketHandler _webSocketHandler;
 
+        private BluetoothHandler _bluetoothHandler;
+
         private static readonly ILog Log = LogManager.GetLogger(typeof(App));
 
         static App()
@@ -57,6 +59,7 @@ namespace OTPAutoForward
         {
             builder.RegisterType<NotifyIconHandler>().SingleInstance();
             builder.RegisterType<WebSocketHandler>().SingleInstance();
+            builder.RegisterType<BluetoothHandler>().SingleInstance();
         }
 
         /** 重写后的程序启动方法 */
@@ -79,6 +82,7 @@ namespace OTPAutoForward
             {
                 _notifyIconHandler = scope.Resolve<NotifyIconHandler>();
                 _webSocketHandler = scope.Resolve<WebSocketHandler>();
+                _bluetoothHandler = scope.Resolve<BluetoothHandler>();
 
                 _notifyIconHandler.Initialize();
                 KeyHandler.SetNotifyIconHandler(_notifyIconHandler);
@@ -100,6 +104,11 @@ namespace OTPAutoForward
                     _notifyIconHandler.Dispose();
                     Shutdown();
                 }, TaskScheduler.FromCurrentSynchronizationContext());
+
+                if (AppSettings.CurrentValue.BluetoothMode)
+                {
+                    _ = _bluetoothHandler.StartBluetoothServer();
+                }
             }
         }
 

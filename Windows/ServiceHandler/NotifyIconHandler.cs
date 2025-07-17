@@ -5,6 +5,8 @@ using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
+using System.Windows;
 using System.Windows.Forms;
 using Windows.UI.Notifications;
 using Microsoft.Win32;
@@ -12,6 +14,7 @@ using FontAwesome.Sharp;
 using log4net;
 using Microsoft.Toolkit.Uwp.Notifications;
 using Application = System.Windows.Application;
+using Clipboard = System.Windows.Forms.Clipboard;
 
 namespace OTPAutoForward.ServiceHandler
 {
@@ -21,11 +24,13 @@ namespace OTPAutoForward.ServiceHandler
         private static readonly ILog Log = LogManager.GetLogger(typeof(NotifyIconHandler));
 
         private readonly WebSocketHandler _webSocketHandler = App.Resolve<WebSocketHandler>();
+        private readonly BluetoothHandler _bluetoothHandler = App.Resolve<BluetoothHandler>();
 
         private NotifyIcon _notifyIcon;
 
         private readonly string _appName = App.AppSettings.CurrentValue.AppName;
         private static readonly bool SilentMode = App.AppSettings.CurrentValue.SilentMode;
+        private static readonly bool BluetoothMode = App.AppSettings.CurrentValue.BluetoothMode;
         private readonly string _iconPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "sms.ico");
 
         public void Initialize()
@@ -46,6 +51,7 @@ namespace OTPAutoForward.ServiceHandler
             InitializeContextMenu();
 
             _webSocketHandler.OnMessageReceived += ShowToastNotification;
+            _bluetoothHandler.OnMessageReceived += ShowToastNotification;
             ToastNotificationManagerCompat.OnActivated += OnToastActivated;
         }
 
@@ -88,6 +94,23 @@ namespace OTPAutoForward.ServiceHandler
                 }
             };
             contextMenu.Items.Add(quietModeItem);
+
+            var bluetoothModeItem = new ToolStripMenuItem("优先使用蓝牙模式");
+            bluetoothModeItem.CheckOnClick = false;
+            bluetoothModeItem.Checked = BluetoothMode; // 默认勾选状态
+            bluetoothModeItem.Click += async (sender, args) =>
+            {
+                var targetState = !bluetoothModeItem.Checked;
+                var success = targetState
+                    ? await EnableBluetoothMode()
+                    : await DisableBluetoothMode();
+
+                if (success)
+                {
+                    bluetoothModeItem.Checked = targetState;
+                }
+            };
+            contextMenu.Items.Add(bluetoothModeItem);
 
             contextMenu.Items.Add(new ToolStripMenuItem("重置密钥",
                 IconChar.Key.ToBitmap(IconFont.Solid, 16, Color.Black),
@@ -249,6 +272,79 @@ namespace OTPAutoForward.ServiceHandler
                 Console.WriteLine($"禁用全屏免打扰时发生异常: {ex.Message}");
                 Log.Error($"禁用全屏免打扰时发生异常: {ex.Message}");
             }
+        }
+
+        /// <summary>
+        /// 开启蓝牙优先模式
+        /// </summary>
+        /// <returns>true 表示成功开启</returns>
+        private async Task<bool> EnableBluetoothMode()
+        {
+            var bluetoothRequest = await ShowBluetoothNotificationAsync("需 Android 端一并开启蓝牙优先模式才可生效");
+            if (!bluetoothRequest) return false;
+
+            var bluetoothServer = await _bluetoothHandler.StartBluetoothServer();
+            if (bluetoothServer.Status)
+            {
+                App.UpdateAppSettings(settings => { settings.BluetoothMode = true; });
+                return true;
+            }
+
+            System.Windows.MessageBox.Show($"蓝牙服务器启动失败: {bluetoothServer.Message}",
+                "核心服务异常", MessageBoxButton.OK, MessageBoxImage.Error);
+            return false;
+        }
+
+        private async Task<bool> DisableBluetoothMode()
+        {
+            // 直接关闭蓝牙服务
+            await _bluetoothHandler.StopBluetoothServer();
+            App.UpdateAppSettings(settings => { settings.BluetoothMode = false; });
+            return true;
+        }
+
+        private static async Task<bool> ShowBluetoothNotificationAsync(string message)
+        {
+            var tcs = new TaskCompletionSource<bool>();
+            Application.Current.Dispatcher.Invoke(() =>
+            {
+                ToastNotificationManagerCompat.History.Clear();
+
+                var toastBuilder = new ToastContentBuilder()
+                    .AddText(message)
+                    .SetToastDuration(ToastDuration.Long)
+                    .AddButton(new ToastButton()
+                        .SetContent("确定")
+                        .AddArgument("action", "bluetooth")
+                        .AddArgument("source", "NotifyIconHandler")
+                        .SetBackgroundActivation())
+                    .AddButton(new ToastButton()
+                        .SetContent("取消")
+                        .AddArgument("action", "cancelBluetooth")
+                        .AddArgument("source", "NotifyIconHandler")
+                        .SetBackgroundActivation());
+
+                ToastNotificationManagerCompat.OnActivated += (toastArgs) =>
+                {
+                    var args = ToastArguments.Parse(toastArgs.Argument);
+
+                    if (args.TryGetValue("action", out var action) && action == "bluetooth")
+                    {
+                        tcs.TrySetResult(true);
+                        return;
+                    }
+
+                    tcs.TrySetResult(false);
+                };
+                toastBuilder.Show();
+
+                _ = Task.Delay(TimeSpan.FromSeconds(25)).ContinueWith(_ =>
+                {
+                    tcs.TrySetResult(false); // 超时未操作
+                });
+            });
+
+            return await tcs.Task;
         }
 
         private static void ShowToastNotification(string message)

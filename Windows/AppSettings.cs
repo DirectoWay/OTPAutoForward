@@ -37,6 +37,9 @@ namespace OTPAutoForward
 
         /** 全屏状态下免打扰模式 */
         public bool SilentMode { get; set; }
+        
+        /** 优先使用蓝牙模式 */
+        public bool BluetoothMode { get; set; }
 
         /** 短信识别关键字 只有包含该关键字的短信才会被识别为验证码类型的短信 */
         public List<string> MessageKeyword { get; set; }
