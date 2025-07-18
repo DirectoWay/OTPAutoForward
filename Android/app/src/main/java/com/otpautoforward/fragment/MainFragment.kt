@@ -78,6 +78,12 @@ class MainFragment : Fragment() {
 
     private val lastSwitchStates = mutableMapOf<String, Boolean>()
 
+    private val smsEnabled = SettingKey.SmsEnabled.key
+    private val screenLocked = SettingKey.ScreenLocked.key
+    private val doNotDistribute = SettingKey.SyncDoNotDistribute.key
+    private val forwardOnlyOTP = SettingKey.ForwardOnlyOTP.key
+    private val bluetoothMode = SettingKey.BluetoothPriorityMode.key
+
     override fun onStart() {
         super.onStart()
         EventBus.getDefault().register(this)
@@ -94,7 +100,7 @@ class MainFragment : Fragment() {
         binding.lifecycleOwner = viewLifecycleOwner
 
         // 初始化静态 UI
-        if (settingsViewModel.settings.value?.get(SettingKey.SmsEnabled.key) == true) {
+        if (settingsViewModel.settings.value?.get(smsEnabled) == true) {
             setExpandedState()
         } else {
             setCollapsedState()
@@ -169,11 +175,11 @@ class MainFragment : Fragment() {
 
         // 观察页面上开关的变化
         settingsViewModel.settings.observe(viewLifecycleOwner) { settings ->
-            binding.switchSms.isChecked = settings[SettingKey.SmsEnabled.key] ?: true
-            binding.switchForwardScreenoff.isChecked = settings[SettingKey.ScreenLocked.key] ?: true
-            binding.switchSyncDoNotDisturb.isChecked = settings[SettingKey.SyncDoNotDistribute.key] ?: true
-            binding.switchForwardOnlyOTP.isChecked = settings[SettingKey.ForwardOnlyOTP.key] ?: true
-            binding.switchBluetoothPriority.isChecked = settings[SettingKey.BluetoothPriorityMode.key] ?: true
+            binding.switchSms.isChecked = settings[smsEnabled] ?: true
+            binding.switchForwardScreenoff.isChecked = settings[screenLocked] ?: true
+            binding.switchSyncDoNotDisturb.isChecked = settings[doNotDistribute] ?: true
+            binding.switchForwardOnlyOTP.isChecked = settings[forwardOnlyOTP] ?: true
+            binding.switchBluetoothPriority.isChecked = settings[bluetoothMode] ?: true
         }
 
         // 观察 UI 颜色的变化
@@ -402,20 +408,20 @@ class MainFragment : Fragment() {
         val vibrator = ContextCompat.getSystemService(binding.root.context, Vibrator::class.java)
 
         binding.switchSms.setOnCheckedChangeListener { _, isChecked ->
-            settingsViewModel.updateSetting(SettingKey.SmsEnabled.key, isChecked)
+            settingsViewModel.updateSetting(smsEnabled, isChecked)
             vibrator?.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 30), -1))
         }
         binding.switchForwardScreenoff.setOnCheckedChangeListener { _, isChecked ->
-            settingsViewModel.updateSetting(SettingKey.ScreenLocked.key, isChecked)
+            settingsViewModel.updateSetting(screenLocked, isChecked)
         }
         binding.switchSyncDoNotDisturb.setOnCheckedChangeListener { _, isChecked ->
-            settingsViewModel.updateSetting(SettingKey.SyncDoNotDistribute.key, isChecked)
+            settingsViewModel.updateSetting(doNotDistribute, isChecked)
         }
         binding.switchForwardOnlyOTP.setOnCheckedChangeListener { _, isChecked ->
-            settingsViewModel.updateSetting(SettingKey.ForwardOnlyOTP.key, isChecked)
+            settingsViewModel.updateSetting(forwardOnlyOTP, isChecked)
         }
         binding.switchBluetoothPriority.setOnCheckedChangeListener { _, isChecked ->
-            settingsViewModel.updateSetting(SettingKey.BluetoothPriorityMode.key, isChecked)
+            settingsViewModel.updateSetting(bluetoothMode, isChecked)
         }
     }
 
@@ -512,7 +518,7 @@ class MainFragment : Fragment() {
 
     private fun startIconAnimation(key: String, currentState: Boolean) {
         when (key) {
-            SettingKey.SmsEnabled.key -> {
+            smsEnabled -> {
                 if (currentState) expandAnimation() else collapseAnimation()
                 animateIconChange(
                     binding.iconSms,
@@ -520,28 +526,28 @@ class MainFragment : Fragment() {
                 )
             }
 
-            SettingKey.ScreenLocked.key -> {
+            screenLocked -> {
                 animateIconChange(
                     binding.iconForwardScreenoff,
                     if (currentState) R.drawable.baseline_screen_lock_portrait_24 else R.drawable.baseline_smartphone_24
                 )
             }
 
-            SettingKey.SyncDoNotDistribute.key -> {
+            doNotDistribute -> {
                 animateIconChange(
                     binding.iconSyncDoNotDisturb,
                     if (currentState) R.drawable.outline_notifications_off_24 else R.drawable.outline_notifications_24
                 )
             }
 
-            SettingKey.ForwardOnlyOTP.key -> {
+            forwardOnlyOTP -> {
                 animateIconChange(
                     binding.iconForwardOnlyOTP,
                     if (currentState) R.drawable.outline_verified_24 else R.drawable.outline_sms_24
                 )
             }
 
-            SettingKey.BluetoothPriorityMode.key -> {
+            bluetoothMode -> {
                 animateIconChange(
                     binding.iconBluetoothPriority,
                     if (currentState) R.drawable.outline_bluetooth_24 else R.drawable.outline_connected_tv_24
@@ -555,11 +561,11 @@ class MainFragment : Fragment() {
     private fun updateIconColor(key: String, currentState: Boolean, iconColor: Int) {
         val color = if (currentState) iconColor else Color.GRAY
         when (key) {
-            SettingKey.SmsEnabled.key -> binding.iconSms.setColorFilter(color)
-            SettingKey.ScreenLocked.key -> binding.iconForwardScreenoff.setColorFilter(color)
-            SettingKey.SyncDoNotDistribute.key -> binding.iconSyncDoNotDisturb.setColorFilter(color)
-            SettingKey.ForwardOnlyOTP.key -> binding.iconForwardOnlyOTP.setColorFilter(color)
-            SettingKey.BluetoothPriorityMode.key -> binding.iconBluetoothPriority.setColorFilter(color)
+            smsEnabled -> binding.iconSms.setColorFilter(color)
+            screenLocked -> binding.iconForwardScreenoff.setColorFilter(color)
+            doNotDistribute -> binding.iconSyncDoNotDisturb.setColorFilter(color)
+            forwardOnlyOTP -> binding.iconForwardOnlyOTP.setColorFilter(color)
+            bluetoothMode -> binding.iconBluetoothPriority.setColorFilter(color)
         }
     }
 
