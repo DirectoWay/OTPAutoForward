@@ -6,8 +6,7 @@ import android.net.LinkProperties
 import android.net.Network
 import android.net.NetworkCapabilities
 import android.util.Log
-import com.google.gson.Gson
-import com.kongzue.dialogx.impl.ActivityLifecycleImpl.getApplicationContext
+import com.otpautoforward.dataclass.AppConfig
 import com.otpautoforward.dataclass.PairedDeviceInfo
 import com.otpautoforward.dataclass.SettingKey
 import kotlinx.coroutines.Dispatchers
@@ -21,12 +20,9 @@ import org.json.JSONObject
 import java.net.Inet4Address
 import java.net.InetSocketAddress
 import java.net.Socket
-import androidx.core.content.edit
-import com.otpautoforward.dataclass.AppConfig
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
-
-private const val NETWORKPREFIX = "networkPrefix"
+import java.net.SocketTimeoutException
 
 /** 通用工具类 */
 class GlobalHandler {
@@ -60,8 +56,8 @@ class GlobalHandler {
         return devices
     }
 
-    fun getOnlineDevices(targetPort: Int): Flow<String> = channelFlow {
-        val localNetworkPrefix = getLocalNetworkPrefix()
+    fun getOnlineDevices(targetPort: Int, context: Context): Flow<String> = channelFlow {
+        val localNetworkPrefix = getLocalNetworkPrefix(context)
 
         Log.d(tag, "开始扫描局域网设备...")
         val startTime = System.currentTimeMillis()
@@ -80,7 +76,9 @@ class GlobalHandler {
                     }
                 }
             } catch (e: TimeoutCancellationException) {
-                Log.d(tag, "局域网设备扫描超时: IP = $ip")
+                Log.d(tag, "局域网设备扫描超时: IP = $ip $e")
+            } catch (_: SocketTimeoutException) {
+                // 非目标设备引发的异常直接忽略
             } catch (e: Exception) {
                 Log.e(tag, "扫描局域网 IP = $ip 出现异常: $e")
             }
@@ -109,21 +107,18 @@ class GlobalHandler {
     }
 
     /** 获取局域网 IP 的前缀 */
-    private fun getLocalNetworkPrefix(): List<String> {
-        val sharedPreferences = getApplicationContext().getSharedPreferences(
-            SettingKey.LocalNetworkPrefixes.key, Context.MODE_PRIVATE)
+    private fun getLocalNetworkPrefix(context: Context): List<String> {
+        val networkPrefixList = mutableListOf<String>()
+        val localIP = getDeviceIPAddress(context)
 
-        val savedNetworkPrefix = sharedPreferences.getString(NETWORKPREFIX, null)
-        if (savedNetworkPrefix != null) {
-            return Gson().fromJson(savedNetworkPrefix, Array<String>::class.java).toList()
+        // 获取不到 IP 的时候, 填入默认的 IP 前缀
+        if (localIP == null) {
+            networkPrefixList.addAll(AppConfig.NetWorkPrefixList.value)
         }
 
-        // 获取不到 IP 前缀的时候, 使用默认值
-        val defaultNetworkPrefixList = AppConfig.NetWorkPrefixList.value
-        sharedPreferences.edit {
-            putString(NETWORKPREFIX, Gson().toJson(defaultNetworkPrefixList))
-        }
-        return defaultNetworkPrefixList
+        val networkPrefix = localIP?.split(".")?.take(3)?.joinToString(".")
+        networkPrefix.let { it?.let { element -> networkPrefixList.add(element) } }
+        return networkPrefixList
     }
 
     /** 记录已经匹配成功过的设备 */

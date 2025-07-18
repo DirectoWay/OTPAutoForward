@@ -66,7 +66,7 @@ const val WORK_MAX_RETRY_COUNT = 3
 
 
 /** 为 WebSocket 连接时提供工具方法 */
-class WebSocketWorker(context: Context, workerParams: WorkerParameters) :
+class WebSocketWorker(private val context: Context, workerParams: WorkerParameters) :
     CoroutineWorker(context, workerParams) {
     private val globalHandler = GlobalHandler()
     private val keyHandler = KeyHandler()
@@ -113,7 +113,7 @@ class WebSocketWorker(context: Context, workerParams: WorkerParameters) :
                 coroutineScope {
                     val connectionJobs = mutableListOf<Job>()
 
-                    globalHandler.getOnlineDevices(WebSocketPort).collect { deviceUrl ->
+                    globalHandler.getOnlineDevices(WebSocketPort, context).collect { deviceUrl ->
                         Log.d(tag, "发现在线设备: $deviceUrl")
 
                         val job = launch {
