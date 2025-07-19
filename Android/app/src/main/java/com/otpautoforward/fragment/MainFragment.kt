@@ -102,6 +102,7 @@ class MainFragment : Fragment() {
         // 初始化静态 UI
         if (settingsViewModel.settings.value?.get(smsEnabled) == true) {
             setExpandedState()
+            setInitialIcon()
         } else {
             setCollapsedState()
         }
@@ -566,6 +567,33 @@ class MainFragment : Fragment() {
             doNotDistribute -> binding.iconSyncDoNotDisturb.setColorFilter(color)
             forwardOnlyOTP -> binding.iconForwardOnlyOTP.setColorFilter(color)
             bluetoothMode -> binding.iconBluetoothPriority.setColorFilter(color)
+        }
+    }
+
+    private fun setInitialIcon() {
+        val settings = settingsViewModel.settings.value ?: return
+
+        val iconViews = listOf(
+            smsEnabled to binding.iconSms,
+            screenLocked to binding.iconForwardScreenoff,
+            doNotDistribute to binding.iconSyncDoNotDisturb,
+            forwardOnlyOTP to binding.iconForwardOnlyOTP,
+            bluetoothMode to binding.iconBluetoothPriority
+        )
+
+        for ((key, imageView) in iconViews) {
+            val isEnabled = settings[key] == true
+
+            val iconRes = when (key) {
+                smsEnabled -> if (isEnabled) R.drawable.baseline_forward_to_inbox_24 else R.drawable.outline_mail_lock_24
+                screenLocked -> if (isEnabled) R.drawable.baseline_screen_lock_portrait_24 else R.drawable.baseline_smartphone_24
+                doNotDistribute -> if (isEnabled) R.drawable.outline_notifications_off_24 else R.drawable.outline_notifications_24
+                forwardOnlyOTP -> if (isEnabled) R.drawable.outline_verified_24 else R.drawable.outline_sms_24
+                bluetoothMode -> if (isEnabled) R.drawable.outline_bluetooth_24 else R.drawable.outline_connected_tv_24
+                else -> continue
+            }
+
+            imageView.setImageResource(iconRes)
         }
     }
 
