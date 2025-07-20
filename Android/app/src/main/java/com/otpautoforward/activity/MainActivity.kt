@@ -33,6 +33,7 @@ import android.view.animation.DecelerateInterpolator
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.widget.Toast
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
@@ -86,6 +87,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private lateinit var batteryOptiLauncher: ActivityResultLauncher<Intent>
     private val smsPermissionCode = 100
+    private val bluetoothPermissionCode = 101
+    private var smsPermissionCallback: (() -> Unit)? = null
     private lateinit var toolbar: Toolbar
     private val jsonHandler = JsonHandler(this)
     private val updateHandler = UpdateHandler()
@@ -151,10 +154,10 @@ class MainActivity : AppCompatActivity() {
         }
 
         // 检查并请求短信权限
-        checkAndRequestSmsPermission()
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            checkBluetoothPermission()
+        checkAndRequestSmsPermission {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                checkBluetoothPermission() // 回调请求蓝牙权限, 防止系统吞权限窗口
+            }
         }
     }
 
@@ -243,34 +246,40 @@ class MainActivity : AppCompatActivity() {
             .show()
     }
 
-    private fun checkAndRequestSmsPermission() {
+    private fun checkAndRequestSmsPermission(onComplete: () -> Unit) {
         val smsPermission = Manifest.permission.RECEIVE_SMS
-        val receiveSmsGranted = ContextCompat.checkSelfPermission(
-            this, smsPermission
-        ) == PackageManager.PERMISSION_GRANTED
-        if (!receiveSmsGranted) {
-            if (ActivityCompat.shouldShowRequestPermissionRationale(this, smsPermission)) {
-                MessageDialog.build()
-                    .setTitle("短信权限请求")
-                    .setMessage("为了 App 能正常工作, 请您授予接收短信的权限")
-                    .setOkButton(
-                        "授予权限"
-                    ) { _, _ ->
-                        ActivityCompat.requestPermissions(
-                            this,
-                            arrayOf(Manifest.permission.RECEIVE_SMS),
-                            smsPermissionCode
-                        )
-                        false
-                    }
-                    .setCancelButton("拒绝") { _, _ ->
-                        Log.e(tag, "短信权限已被拒绝")
-                        false
-                    }
-                    .show()
-            } else {
-                ActivityCompat.requestPermissions(this, arrayOf(smsPermission), smsPermissionCode)
-            }
+
+        // 有短信权限直接返回
+        if (ContextCompat.checkSelfPermission(this, smsPermission) == PackageManager.PERMISSION_GRANTED) {
+            onComplete()
+            return
+        }
+
+        smsPermissionCallback = onComplete
+
+        // 拒绝过授予短信权限时给弹窗再次请求
+        if (ActivityCompat.shouldShowRequestPermissionRationale(this, smsPermission)) {
+            MessageDialog.build()
+                .setTitle("短信权限请求")
+                .setMessage("为了 App 能正常工作, 请您授予接收短信的权限")
+                .setOkButton(
+                    "授予权限"
+                ) { _, _ ->
+                    ActivityCompat.requestPermissions(
+                        this,
+                        arrayOf(Manifest.permission.RECEIVE_SMS),
+                        smsPermissionCode
+                    )
+                    false
+                }
+                .setCancelButton("拒绝") { _, _ ->
+                    Log.e(tag, "短信权限已被拒绝")
+                    false
+                }
+                .show()
+        } else {
+            // 首次开启 App 时唤起安卓默认的权限弹窗
+            ActivityCompat.requestPermissions(this, arrayOf(smsPermission), smsPermissionCode)
         }
     }
 
@@ -285,6 +294,16 @@ class MainActivity : AppCompatActivity() {
                 showPermissionSettingsDialog()
                 Log.e(tag, "短信权限获取失败")
             }
+            smsPermissionCallback?.invoke()
+            smsPermissionCallback = null
+        }
+        if (requestCode == bluetoothPermissionCode) {
+            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                Log.d(tag, "蓝牙权限已获取")
+                return
+            }
+            Log.d(tag, "蓝牙权限未获取")
+            Toast.makeText(this, "蓝牙权限异常, 无法使用蓝牙优先模式", Toast.LENGTH_LONG).show()
         }
     }
 
@@ -309,12 +328,15 @@ class MainActivity : AppCompatActivity() {
 
     @RequiresApi(Build.VERSION_CODES.S)
     private fun checkBluetoothPermission() {
-        val REQUEST_CODE_BLUETOOTH = 1001
         val permissions = arrayOf(
-            Manifest.permission.BLUETOOTH_CONNECT,
-            Manifest.permission.BLUETOOTH_SCAN
+            Manifest.permission.BLUETOOTH_SCAN,
+            Manifest.permission.BLUETOOTH_CONNECT
         )
-        ActivityCompat.requestPermissions(this, permissions, REQUEST_CODE_BLUETOOTH)
+
+        if (permissions.all { ContextCompat.checkSelfPermission(this, it) == PackageManager.PERMISSION_GRANTED }) {
+            return
+        }
+        ActivityCompat.requestPermissions(this, permissions, bluetoothPermissionCode)
     }
 
     private fun showAbout() {
