@@ -33,5 +33,11 @@ enum class SettingKey(val key: String) {
     LocalNetworkPrefixes("LocalNetworkPrefixes"),
 
     /** 测试用消息的内容 */
-    TestMessage("TestMassage")
+    TestMessage("TestMassage"),
+
+    /** 权限申请记录 */
+    PermissionFlags("PermissionFlags"),
+
+    /** 蓝牙权限申请 */
+    BluetoothPermission("BluetoothPermission")
 }

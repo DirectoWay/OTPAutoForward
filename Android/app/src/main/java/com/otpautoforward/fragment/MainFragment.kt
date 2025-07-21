@@ -6,6 +6,7 @@ import android.animation.AnimatorListenerAdapter
 import android.animation.AnimatorSet
 import android.animation.ObjectAnimator
 import android.app.Activity
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
@@ -31,7 +32,10 @@ import android.widget.ImageView
 import android.widget.Toast
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.RequiresApi
+import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.core.content.edit
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
@@ -78,11 +82,15 @@ class MainFragment : Fragment() {
 
     private val lastSwitchStates = mutableMapOf<String, Boolean>()
 
+    private var smsPermissionCallback: (() -> Unit)? = null
+
     private val smsEnabled = SettingKey.SmsEnabled.key
     private val screenLocked = SettingKey.ScreenLocked.key
     private val doNotDistribute = SettingKey.SyncDoNotDistribute.key
     private val forwardOnlyOTP = SettingKey.ForwardOnlyOTP.key
     private val bluetoothMode = SettingKey.BluetoothPriorityMode.key
+    private val permissionFlags = SettingKey.PermissionFlags.key
+    private val bluetoothPermission = SettingKey.BluetoothPermission.key
 
     override fun onStart() {
         super.onStart()
@@ -98,6 +106,12 @@ class MainFragment : Fragment() {
         settingsViewModel = ViewModelProvider(requireActivity())[SettingsViewModel::class.java]
         binding.settingsViewModel = settingsViewModel
         binding.lifecycleOwner = viewLifecycleOwner
+
+        binding.switchBluetoothPriority.setOnClickListener {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                checkBluetoothPermission(false) // 每当蓝牙模式开关打开时检查一遍权限
+            }
+        }
 
         // 初始化静态 UI
         if (settingsViewModel.settings.value?.get(smsEnabled) == true) {
@@ -117,6 +131,14 @@ class MainFragment : Fragment() {
                     Log.d(tagF, "相机调用失败或取消")
                 }
             }
+
+        checkAndRequestSmsPermission {
+            if (settingsViewModel.settings.value?.get(bluetoothMode) == true) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    checkBluetoothPermission(false) // 开启 App 时默认检查一遍蓝牙权限
+                }
+            }
+        }
 
         return binding.root
     }
@@ -228,6 +250,107 @@ class MainFragment : Fragment() {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            checkBluetoothPermission(true)
+        }
+    }
+
+    private var smsPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val allGranted = permissions.all { it.value }
+        if (allGranted) {
+            Log.d(tagF, "短信权限已获取")
+        } else {
+            Log.e(tagF, "短信权限未获取")
+            val fail = fun() {
+                Log.e(tagF, "短信权限已被拒绝")
+                activity?.finishAffinity()
+            }
+            handlePermissionPermanentlyDenied("短信权限请求", "为了 App 能正常工作, 请您授予接收短信的权限", fail)
+        }
+        smsPermissionCallback?.invoke()
+        smsPermissionCallback = null
+    }
+
+    private fun checkAndRequestSmsPermission(onComplete: () -> Unit) {
+        val smsPermission = Manifest.permission.RECEIVE_SMS
+
+        // 有短信权限直接返回
+        if (ContextCompat.checkSelfPermission(requireContext(), smsPermission) == PackageManager.PERMISSION_GRANTED) {
+            Log.d(tagF, "已获取短信权限, 权限正常")
+            onComplete()
+            return
+        }
+
+        smsPermissionCallback = onComplete
+        smsPermissionLauncher.launch(arrayOf(smsPermission))
+    }
+
+    private var bluetoothPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val allGranted = permissions.entries.all { it.value }
+        if (!allGranted) {
+            Log.e(tagF, "暂未授予蓝牙权限")
+            settingsViewModel.updateSetting(bluetoothMode, false)
+            Toast.makeText(requireContext(), "请授予蓝牙权限以启用蓝牙模式", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    @RequiresApi(Build.VERSION_CODES.S)
+    private fun checkBluetoothPermission(isResume: Boolean) {
+        if (settingsViewModel.settings.value?.get(bluetoothMode) == false) {
+            return
+        }
+
+        val bluetoothPermissions = arrayOf(
+            Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT
+        )
+
+        // 蓝牙权限是否齐全
+        val allGranted = bluetoothPermissions.all {
+            ContextCompat.checkSelfPermission(requireContext(), it) == PackageManager.PERMISSION_GRANTED
+        }
+
+        if (allGranted) return
+
+        val sharedPreferences = requireContext().getSharedPreferences(permissionFlags, Context.MODE_PRIVATE)
+        val requestedBefore = sharedPreferences.getBoolean(bluetoothPermission, false)
+
+        // 回调后如果用户还不授予蓝牙权限, 直接关闭蓝牙优先模式
+        if (isResume) {
+            settingsViewModel.updateSetting(bluetoothMode, false)
+            return
+        }
+
+        val permanentlyDenied = requestedBefore && bluetoothPermissions.any { permission ->
+            !ActivityCompat.shouldShowRequestPermissionRationale(
+                requireActivity(),
+                permission
+            ) && ContextCompat.checkSelfPermission(requireContext(), permission) != PackageManager.PERMISSION_GRANTED
+        }
+
+        if (permanentlyDenied) {
+            Handler(Looper.getMainLooper()).postDelayed({
+                val fail = fun() {
+                    Log.e(tagF, "蓝牙权限已被拒绝")
+                    settingsViewModel.updateSetting(bluetoothMode, false)
+                }
+                handlePermissionPermanentlyDenied(
+                    "蓝牙权限请求",
+                    "蓝牙权限已被拒绝\n蓝牙优先模式可能无法正常使用",
+                    fail
+                )
+            }, 500)
+        } else {
+            sharedPreferences.edit { putBoolean(bluetoothPermission, true) }
+            bluetoothPermissionLauncher.launch(bluetoothPermissions)
+        }
+    }
+
     /** 检查相机权限 */
     private fun checkCameraPermission() {
         when {
@@ -262,20 +385,22 @@ class MainFragment : Fragment() {
             .show()
     }
 
-    /** 相机权限被手动拒绝时跳转至设置页面 */
-    private fun handlePermissionPermanentlyDenied() {
+    /** 权限被手动拒绝时跳转至设置页面 */
+    private fun handlePermissionPermanentlyDenied(title: String, message: String, failHandler: () -> Unit = {}) {
         MessageDialog.build()
-            .setTitle("需要相机权限")
-            .setMessage("相机权限被拒绝, 请前往设置授予权限")
+            .setCancelable(false)
+            .setTitle(title)
+            .setMessage(message)
             .setOkButton("去设置") { _, _ ->
                 val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
                     data = Uri.fromParts("package", requireContext().packageName, null)
                 }
                 startActivity(intent)
                 false
-            }
-            .setCancelButton("取消")
-            .show()
+            }.setCancelButton("拒绝") { _, _ ->
+                failHandler()
+                false
+            }.show()
     }
 
     /** 请求相机权限 */
@@ -287,7 +412,7 @@ class MainFragment : Fragment() {
             } else {
                 Log.d(tagF, "相机权限已遭拒绝")
                 if (!shouldShowRequestPermissionRationale(Manifest.permission.CAMERA)) {
-                    handlePermissionPermanentlyDenied()
+                    handlePermissionPermanentlyDenied("需要相机权限", "相机权限被拒绝, 请前往设置授予权限")
                 }
             }
         }
