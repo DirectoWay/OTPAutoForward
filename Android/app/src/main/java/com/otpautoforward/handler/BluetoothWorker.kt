@@ -1,4 +1,4 @@
-﻿package com.otpautoforward.handler
+package com.otpautoforward.handler
 
 import android.Manifest
 import android.content.Context
@@ -71,6 +71,11 @@ class BluetoothWorker(private val context: Context, workerParams: WorkerParamete
             Result.success()
         } catch (e: TimeoutCancellationException) {
             Log.e(tag, "蓝牙连接超时$e")
+            messagePendingToSend?.let { WebSocketWorker.sendWebSocketMessage(context, it) }
+            Result.failure()
+        } catch (e: Exception) {
+            Log.e(tag, "蓝牙消息任务执行异常 $e")
+            messagePendingToSend?.let { WebSocketWorker.sendWebSocketMessage(context, it) }
             Result.failure()
         }
     }
@@ -95,63 +100,76 @@ class BluetoothWorker(private val context: Context, workerParams: WorkerParamete
      */
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     suspend fun connect(deviceNames: List<String>) {
-        withContext(Dispatchers.IO) {
-            val deferredResults = deviceNames.map { deviceName ->
-                async {
-                    initBluetooth()
-                    deviceName to handleBluetooth(deviceName)
+        try {
+            withContext(Dispatchers.IO) {
+                val deferredResults = deviceNames.map { deviceName ->
+                    async {
+                        initBluetooth()
+                        deviceName to handleBluetooth(deviceName)
+                    }
+                }.awaitAll()
+
+                val failedDevices = deferredResults.filter { !it.second }.map { it.first }
+
+                if (failedDevices.isNotEmpty()) {
+                    Log.w(tag, "蓝牙设备连接失败: $failedDevices")
                 }
-            }.awaitAll()
-
-            val failedDevices = deferredResults.filter { !it.second }.map { it.first }
-
-            if (failedDevices.isNotEmpty()) {
-                Log.w(tag, "蓝牙设备连接失败: $failedDevices")
             }
+        } catch (ex: Exception) {
+            throw ex
         }
     }
 
     private suspend fun initBluetooth() = withContext(Dispatchers.Main) {
-        if (!::bluetoothSPP.isInitialized) {
+        try {
+            if (!::bluetoothSPP.isInitialized) {
 
-            bluetoothSPP = BluetoothSPP(context)
+                bluetoothSPP = BluetoothSPP(context)
 
-            bluetoothSPP.setOnDataReceivedListener { _, message ->
-                Log.d(tag, "收到消息: $message")
-                if (message.contains(CONFIRMED_FIELD)) {
-                    disconnect()
-                } else {
-                    Log.w(tag, "通过蓝牙发送消息失败, 即将通过 Websocket 补发")
-                    messagePendingToSend?.let { WebSocketWorker.sendWebSocketMessage(context, it) }
+                if (bluetoothSPP.bluetoothAdapter == null) {
+                    Log.e(tag, "蓝牙适配器初始化失败")
+                    throw Exception("蓝牙适配器初始化失败")
                 }
-                messagePendingToSend = null
-            }
 
-            bluetoothSPP.setBluetoothConnectionListener(object : BluetoothSPP.BluetoothConnectionListener {
-                override fun onDeviceConnected(name: String?, address: String?) {
-                    Log.i(tag, "已通过蓝牙连接设备: $name [$address]")
-                    messagePendingToSend?.let {
-                        bluetoothSPP.send(keyHandler.encryptString(it), true) // 加密消息
-                        Log.d(tag, "蓝牙消息已发送: $it")
+                if (!bluetoothSPP.isBluetoothAvailable || !bluetoothSPP.isBluetoothEnabled) {
+                    Log.e(tag, "蓝牙未开启或设备不支持蓝牙")
+                    throw Exception("蓝牙未开启或设备不支持蓝牙")
+                }
+
+                bluetoothSPP.setOnDataReceivedListener { _, message ->
+                    Log.d(tag, "收到消息: $message")
+                    if (message.contains(CONFIRMED_FIELD)) {
+                        disconnect()
+                    } else {
+                        Log.w(tag, "未收到 Win 端的确认消息, 即将通过 Websocket 补发")
+                        throw Exception("未收到 Win 端的确认消息")
                     }
+                    messagePendingToSend = null
                 }
 
-                override fun onDeviceDisconnected() {
-                    Log.i(tag, "蓝牙已断开连接")
-                }
+                bluetoothSPP.setBluetoothConnectionListener(object : BluetoothSPP.BluetoothConnectionListener {
+                    override fun onDeviceConnected(name: String?, address: String?) {
+                        Log.i(tag, "已通过蓝牙连接设备: $name [$address]")
+                        messagePendingToSend?.let {
+                            bluetoothSPP.send(keyHandler.encryptString(it), true) // 加密消息
+                            Log.d(tag, "蓝牙消息已发送: $it")
+                        }
+                    }
 
-                override fun onDeviceConnectionFailed() {
-                    Log.e(tag, "蓝牙连接失败")
-                }
-            })
+                    override fun onDeviceDisconnected() {
+                        Log.i(tag, "蓝牙已断开连接")
+                    }
 
-            if (!bluetoothSPP.isBluetoothAvailable) {
-                Log.e(tag, "设备不支持蓝牙或未开启")
-                return@withContext
+                    override fun onDeviceConnectionFailed() {
+                        Log.e(tag, "蓝牙连接失败")
+                    }
+                })
+
+                bluetoothSPP.setupService()
+                bluetoothSPP.startService(false)
             }
-
-            bluetoothSPP.setupService()
-            bluetoothSPP.startService(false)
+        } catch (ex: Exception) {
+            throw ex
         }
     }
 
@@ -166,11 +184,11 @@ class BluetoothWorker(private val context: Context, workerParams: WorkerParamete
 
         return try {
             bluetoothSPP.connect(device.address)
-            Log.i(tag, "成功连接蓝牙设备: ${device.name}")
+            Log.i(tag, "已找到配对的蓝牙设备: ${device.name}")
             true
         } catch (ex: Exception) {
             Log.e(tag, "蓝牙连接设备: ${device.name} 时异常: $ex")
-            false
+            throw ex
         }
     }
 
