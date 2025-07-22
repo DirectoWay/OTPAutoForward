@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Concurrent;
 using System.IO;
 using System.Net;
@@ -94,6 +94,7 @@ namespace OTPAutoForward.ServiceHandler
             {
                 Log.Fatal($"启动 WebSocket 服务器时发生错误: {ex.Message}");
                 Console.WriteLine($"启动 WebSocket 服务器时发生错误: {ex}");
+                throw;
             }
             finally
             {

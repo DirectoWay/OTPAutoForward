@@ -98,7 +98,12 @@ namespace OTPAutoForward
                 _webSocketHandler.StartWebSocketServer().ContinueWith(task =>
                 {
                     if (!task.IsFaulted) return;
-                    MessageBox.Show("启动失败，WebSocket 服务启动失败", "核心服务异常",
+                    
+                    var exception = task.Exception;
+                    var innerException = exception?.InnerException;
+
+                    MessageBox.Show($"启动失败，WebSocket 服务启动失败: {innerException?.Message}",
+                        "核心服务异常",
                         MessageBoxButton.OK, MessageBoxImage.Error);
 
                     _notifyIconHandler.Dispose();
