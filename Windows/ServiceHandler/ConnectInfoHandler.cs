@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Management;
@@ -10,7 +10,7 @@ using log4net;
 
 namespace OTPAutoForward.ServiceHandler
 {
-    public static class ConnectInfoHandler
+    public class ConnectInfoHandler
     {
         private static readonly ILog Log = LogManager.GetLogger(typeof(ConnectInfoHandler));
 
@@ -34,7 +34,7 @@ namespace OTPAutoForward.ServiceHandler
         }
 
         /** 获取本机 IP 地址 */
-        public static IPAddress GetLocalIP()
+        public IPAddress GetLocalIP()
         {
             try
             {

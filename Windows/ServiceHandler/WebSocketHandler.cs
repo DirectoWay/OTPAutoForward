@@ -21,7 +21,7 @@ namespace OTPAutoForward.ServiceHandler
         private static readonly ILog Log = LogManager.GetLogger(typeof(WebSocketHandler));
 
         /** WebSocket 服务的 IP 地址 */
-        private readonly IPAddress _ipAddress = ConnectInfoHandler.GetLocalIP();
+        private readonly IPAddress _ipAddress = new ConnectInfoHandler().GetLocalIP();
 
         /** WebSocket 服务的端口号 */
         private readonly int _port = App.AppSettings.CurrentValue.WebSocketPort;

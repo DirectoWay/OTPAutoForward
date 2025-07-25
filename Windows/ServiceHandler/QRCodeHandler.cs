@@ -10,9 +10,10 @@ namespace OTPAutoForward.ServiceHandler
     /// <summary>
     /// 处理二维码相关的操作
     ///  </summary>
-    public static class QRCodeHandler
+    public class QRCodeHandler
     {
         private static string _qrCodePath;
+        private readonly ConnectInfoHandler _connectInfoHandler = new ConnectInfoHandler();
 
         /// <summary>
         /// 生成二维码图像
@@ -44,12 +45,12 @@ namespace OTPAutoForward.ServiceHandler
         }
 
         /** 在 Toast 弹窗中显示配对二维码 */
-        public static void ShowQRCode()
+        public void ShowQRCode()
         {
             /*var (pairInfo, signature) = ConnectInfoHandler.GetPairInfo();
             var qrData = pairInfo + "." + signature;*/
 
-            var qrData = KeyHandler.EncryptString(ConnectInfoHandler.GetLocalIP().ToString());
+            var qrData = KeyHandler.EncryptString(_connectInfoHandler.GetLocalIP().ToString());
             _qrCodePath = GenerateQrCodeImage(qrData, 1024, 1024);
             new ToastContentBuilder()
                 .AddText("请用 App 端扫描该二维码以进行配对")

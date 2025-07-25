@@ -25,6 +25,8 @@ namespace OTPAutoForward.ServiceHandler
 
         private readonly WebSocketHandler _webSocketHandler = App.Resolve<WebSocketHandler>();
         private readonly BluetoothHandler _bluetoothHandler = App.Resolve<BluetoothHandler>();
+        private readonly ConnectInfoHandler _connectInfoHandler = new ConnectInfoHandler();
+        private readonly QRCodeHandler _qrCodeHandler = new QRCodeHandler();
 
         private NotifyIcon _notifyIcon;
 
@@ -134,7 +136,7 @@ namespace OTPAutoForward.ServiceHandler
 
             contextMenu.Items.Add(new ToolStripMenuItem("显示配对二维码",
                 IconChar.Link.ToBitmap(IconFont.Solid, 16, Color.Black),
-                (sender, args) => QRCodeHandler.ShowQRCode()));
+                (sender, args) => _qrCodeHandler.ShowQRCode()));
 
             contextMenu.Items.Add(new ToolStripSeparator()); // 分隔符
 
@@ -517,9 +519,9 @@ namespace OTPAutoForward.ServiceHandler
             }
         }
 
-        private static void ShowIPNotification()
+        private void ShowIPNotification()
         {
-            var ip = ConnectInfoHandler.GetLocalIP();
+            var ip = _connectInfoHandler.GetLocalIP();
             var toastBuilder = new ToastContentBuilder();
             toastBuilder
                 .AddText($"请在 App 输入 IP 地址: {ip}")
