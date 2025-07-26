@@ -20,9 +20,6 @@ namespace OTPAutoForward.ServiceHandler
 
         private static readonly ILog Log = LogManager.GetLogger(typeof(WebSocketHandler));
 
-        /** WebSocket 服务的 IP 地址 */
-        private readonly IPAddress _ipAddress = new ConnectInfoHandler().GetLocalIP();
-
         /** WebSocket 服务的端口号 */
         private readonly int _port = App.AppSettings.CurrentValue.WebSocketPort;
 
@@ -81,11 +78,11 @@ namespace OTPAutoForward.ServiceHandler
                 }
 
                 _httpListener = new HttpListener();
-                _httpListener.Prefixes.Add($"http://{_ipAddress}:{_port}/");
+                _httpListener.Prefixes.Add("http://*:9224/");
 
                 _httpListener.Start();
-                Log.Info($"WebSocket 服务器已启动 - IP地址: {_ipAddress},监听端口: {_port}");
-                Console.WriteLine($"WebSocket 服务器已启动 - IP地址: {_ipAddress},监听端口: {_port}");
+                Log.Info($"WebSocket 服务器已启动 - 监听端口: {_port}");
+                Console.WriteLine($"WebSocket 服务器已启动 - 监听端口: {_port}");
 
                 _ = MonitorWebSocketServer();
                 _ = AcceptWebSocketClientsAsync();
