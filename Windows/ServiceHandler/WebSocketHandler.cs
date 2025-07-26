@@ -234,7 +234,7 @@ namespace OTPAutoForward.ServiceHandler
                     ReceivedMessages.Enqueue(message);
                     OnMessageReceived?.Invoke(message);
 
-                    var responseMessage = $"{ConfirmedField}.已收到消息: {message}";
+                    var responseMessage = $"{ConfirmedField}.已收到消息";
                     await SendWebSocketMessage(webSocket, responseMessage);
                     Console.WriteLine("已发送确认消息");
                 }
