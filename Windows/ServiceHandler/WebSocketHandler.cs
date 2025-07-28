@@ -4,7 +4,6 @@ using System.IO;
 using System.Net;
 using System.Net.WebSockets;
 using System.Text;
-using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
@@ -17,6 +16,8 @@ namespace OTPAutoForward.ServiceHandler
     public class WebSocketHandler
     {
         private HttpListener _httpListener;
+        
+        private volatile bool _websocketMonitor;
 
         private static readonly ILog Log = LogManager.GetLogger(typeof(WebSocketHandler));
 
@@ -50,22 +51,32 @@ namespace OTPAutoForward.ServiceHandler
 
 
         /** WebSocket 服务监听与保活 */
-        private async Task MonitorWebSocketServer()
+        public async Task MonitorWebSocketServer()
         {
-            while (true)
-            {
-                if (_httpListener == null || !_httpListener.IsListening)
-                {
-                    Log.Warn("\"WebSocket 服务停止，尝试重新启动...");
-                    Console.WriteLine("WebSocket 服务停止，尝试重新启动...");
-                    await StartWebSocketServer();
-                }
+            if (_websocketMonitor) return;
+            _websocketMonitor = true;
 
-                await Task.Delay(3600000); // 检查间隔
+            try
+            {
+                while (true)
+                {
+                    if (_httpListener == null || !_httpListener.IsListening)
+                    {
+                        Log.Warn("WebSocket 服务未运行 尝试启动...");
+                        Console.WriteLine("WebSocket 服务未运行 尝试启动...");
+                        await StartWebSocketServer();
+                    }
+
+                    await Task.Delay(3600000); // 检查间隔
+                }
+            }
+            finally
+            {
+                _websocketMonitor = false; // 服务异常时将退出无限循环
             }
         }
 
-        public async Task StartWebSocketServer()
+        private async Task StartWebSocketServer()
         {
             await _startStopSemaphore.WaitAsync();
             try

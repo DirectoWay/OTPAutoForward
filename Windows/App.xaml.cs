@@ -95,7 +95,7 @@ namespace OTPAutoForward
                     return;
                 }
 
-                _webSocketHandler.StartWebSocketServer().ContinueWith(task =>
+                _webSocketHandler.MonitorWebSocketServer().ContinueWith(task =>
                 {
                     if (!task.IsFaulted) return;
                     
